@@ -1,0 +1,51 @@
+\documentclass[a4paper,pagesize 10pt]{scrartcl}
+
+\usepackage{graphicx}
+\usepackage{scalefnt}
+\usepackage{textfit}
+
+\begin{document}
+
+
+\begin{center}{\Huge\textbf{Project Proposal}}\end{center}
+\begin{center}{\Large\textbf{''YOUR TITLE''}}\end{center}
+
+\section{Abstract}
+
+%
+%Write a short abstract of your planned project.
+%
+%Cite papers that you want to use as references (e.g. Adelson et al.~\cite{adelson1984pyramid}).
+%
+%Include an overview figure that shows your planned processing pipeline.
+%
+%
+The problem of feature detection is well known and studied, but can be computationally expensive. In this project, we study feature detection systems, which are able to run on a mobile phone. 
+
+The resulting set of features and the data from the built in-accelerometers will then be used to calculate the depth of each feature in the frames using stereo matching [CITATION NEEDED]. 
+
+With this depth information, we are able to apply to advanced image processing algorithms e. g. a Bokeh effect ~\cite{Hu2013}.
+
+%\begin{figure}[h]
+%	\centering
+%	\includegraphics[width=\linewidth]{overview}
+%	\caption{Method overview.}
+%	\label{fig:overview}
+%\end{figure}
+
+\section{Requirements}
+List your hardware requirements. E.g. Kinect sensor, Webcam, etc..
+
+\section{Team}
+
+
+
+% references
+{\small
+	\bibliographystyle{plain}
+	\bibliography{project_proposal}
+}
+
+\end{document}
+
+
