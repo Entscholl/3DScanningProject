@@ -3,12 +3,13 @@
 \usepackage{graphicx}
 \usepackage{scalefnt}
 \usepackage{textfit}
+\usepackage{url}
 
 \begin{document}
 
 
 \begin{center}{\Huge\textbf{Project Proposal}}\end{center}
-\begin{center}{\Large\textbf{''YOUR TITLE''}}\end{center}
+\begin{center}{\Large\textbf{''Stereoscopic reconstruction on Android''}}\end{center}
 
 \section{Abstract}
 
@@ -20,9 +21,14 @@
 %Include an overview figure that shows your planned processing pipeline.
 %
 %
-The problem of feature detection is well known and studied, but can be computationally expensive. In this project, we study feature detection systems, which are able to run on a mobile phone. 
+The problem of feature detection is well known and studied, but can be computationally expensive. In this project, we aim to build a robust feature detection system which will be more accessible, by utilizing a mobile phones built in hardware. Inspired by the next version of Android providing an API for muliple cameras ~\cite{AndroidPMultiCamera} doing true stereo matching on mobile might become much easier. Currently, most stereo matching algorithms take two pictures sequentially and rely on the accelerometer and other positonal sensors to detect the positional disparity. Finally, we demonstrate the usabilty of our feature matching by applying a bokeh effect to one of the input images.
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.48]{Pipeline.PNG}
+	\caption{Our Proposed Processing Pipeline}
+\end{figure}
 
-The resulting set of features and the data from the built in-accelerometers will then be used to calculate the depth of each feature in the frames using stereo matching [CITATION NEEDED].
+
 % Camera calibration for intrinsic parameters necessary, e.g. OpenCV
 
 First, we detect and match features between the two RGB images to obtain the epipolar geometry.[CITATION NEEDED]
@@ -50,11 +56,14 @@ With this depth information, we are able to apply advanced image processing algo
 %								Sensor Data B
 
 \section{Requirements}
-List your hardware requirements. E.g. Kinect sensor, Webcam, etc..
-%Possibly a Smartphone with Stereo Capabilites, P30
-
+Perferably, a multi-camera smartphone with android 9 support would be good, but we are able to adapt if that is not possible. A Tango smartphone would be nice to benchmark our system against a full mobile depth camera.
 \section{Team}
-
+\begin{itemize}
+	\item Iulia - Otilia Mustea
+	\item Manuel Schwonberger
+	\item Jeremias Neth
+	\item Michael Wechner
+\end{itemize}
 
 
 % references
