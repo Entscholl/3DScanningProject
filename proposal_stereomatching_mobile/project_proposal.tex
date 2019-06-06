@@ -3,12 +3,15 @@
 \usepackage{graphicx}
 \usepackage{scalefnt}
 \usepackage{textfit}
+\usepackage{url}
 
 \begin{document}
 
 
 \begin{center}{\Huge\textbf{Project Proposal}}\end{center}
+
 \begin{center}{\Large\textbf{Stereoscopic Reconstruction on Android}}\end{center}
+
 
 \section{Abstract}
 
@@ -20,19 +23,15 @@
 %Include an overview figure that shows your planned processing pipeline.
 %
 %
-The problem of feature detection is well known and studied, but can be computationally expensive. In this project, we study feature detection systems, which are able to run on a mobile phone. 
-
-The resulting set of features and the data from the built in-accelerometers will then be used to calculate the depth of each feature in the frames using stereo matching [CITATION NEEDED].
-
-With this depth information, we are able to apply advanced image processing algorithms e. g. a Bokeh effect ~\cite{Lee2008}.
-\section{Technical Details}
-
+The problem of feature detection is well known and studied, but can be computationally expensive. In this project, we aim to build a robust feature detection system which will be more accessible, by utilizing a mobile phones built in hardware. Inspired by Android 9 (Pie)
+%next version right now would be Android Q (10)
+providing an API for multiple cameras ~\cite{AndroidPMultiCamera} doing true stereo matching on mobile might become much easier. Currently, most stereo matching algorithms take two pictures sequentially and rely on the accelerometer and gyroscope to detect the positional disparity. Finally, we demonstrate the usability of our feature matching by applying a bokeh effect to one of the input images.
 \begin{figure}[h]
 	\centering
-%	\includegraphics[width=\linewidth]{overview}
-	\caption{Method overview.}
-	\label{fig:overview}
+	\includegraphics[scale=0.55]{Pipeline.PNG}
+	\caption{Our Proposed Processing Pipeline}
 \end{figure}
+
 % Camera calibration for intrinsic parameters necessary, e.g. OpenCV
 
 \paragraph{Data Capture}
@@ -79,11 +78,14 @@ The targeted platform is Android and the technical implementation will be done u
 \textbf{Week 29}: Testing
 \textbf{Week 30}: Create Poster
 \section{Requirements}
-If double inertia integration is too inaccurate for rectification an alternate approach would be a stereo camera setup. The issue in finding such a device remains the reluctant vendor implementation of the corresponding Camera2 API. According to google, recent Android P Smartphones allegedly should support this. Yet, e.g. a Nokia 7 Plus does not. Another alternative would be to utilize an external camera via USB in addition to the phones main camera.
-%TL:DR Smartphone with two cameras and API support would be cool, USB camera would probably suffice.
-
+Preferably, a multi-camera smartphone which offers an API for that (LOGICAL_MULTI_CAMERA \footnote{Not all phones with Android 9 and stereo cameras actually support this: https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics}) would be good, but we are able to adapt if that is not possible. Alternatively, an USB camera which is supported by android\footnote{https://source.android.com/devices/camera/external-usb-cameras} could be used to do traditional stereo vision. A Tango smartphone would be nice to benchmark our system against a full mobile depth camera.
 \section{Team}
-
+\begin{itemize}
+	\item Iulia - Otilia Mustea
+	\item Manuel Schwonberger
+	\item Jeremias Neth
+	\item Michael Wechner
+\end{itemize}
 
 
 % references
