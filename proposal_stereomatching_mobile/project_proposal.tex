@@ -8,7 +8,7 @@
 
 
 \begin{center}{\Huge\textbf{Project Proposal}}\end{center}
-\begin{center}{\Large\textbf{''YOUR TITLE''}}\end{center}
+\begin{center}{\Large\textbf{Stereoscopic Reconstruction on Android}}\end{center}
 
 \section{Abstract}
 
@@ -23,35 +23,64 @@
 The problem of feature detection is well known and studied, but can be computationally expensive. In this project, we study feature detection systems, which are able to run on a mobile phone. 
 
 The resulting set of features and the data from the built in-accelerometers will then be used to calculate the depth of each feature in the frames using stereo matching [CITATION NEEDED].
-% Camera calibration for intrinsic parameters necessary, e.g. OpenCV
-
-First, we detect and match features between the two RGB images to obtain the epipolar geometry.[CITATION NEEDED]
-%Still not sure how that is exactely done
-%Sparse feature matching maybe? e.g. SIFT, SURF, ORB
-Once we have the epipolar geometry, we can rectify the images ~\cite{loop1999}. Once rectified we can apply stereo matching algorithms e.g. PatchMatch ~\cite{Bleyer2011} or PM-Huber ~\cite{Heise2013} to calculate the displacement map. In the optimal parallel case we can calculate the depth via triangulation [CITATION NEEDED]. 
-%it's described in the lecture slides and on stack overflow that way. Have to find a paper though.
-
-The inertial data of the accelerometer is integrated twice to obtain the positional difference~\cite{Seifert2007}. Here, the numerical integration error accumulates over time. In contrast, the rotational difference between to RGB data sets is obtained by sampling the gyroscope sensor. We test if the supplied commodity sensors are accurate enough to augment the image rectification.
 
 With this depth information, we are able to apply advanced image processing algorithms e. g. a Bokeh effect ~\cite{Lee2008}.
+\section{Technical Details}
 
-%\begin{figure}[h]
-%	\centering
+\begin{figure}[h]
+	\centering
 %	\includegraphics[width=\linewidth]{overview}
-%	\caption{Method overview.}
-%	\label{fig:overview}
-%\end{figure}
-%								Sensor Data	A
-%									 ||
-%Figure: Picture A => Epipolar Lines => Rectify \
-%												 => Disparity Map => Depth => Bokeh	
-%		 Picture B => Epipolar Lines => Rectify /
-%									 ||
-%								Sensor Data B
+	\caption{Method overview.}
+	\label{fig:overview}
+\end{figure}
+% Camera calibration for intrinsic parameters necessary, e.g. OpenCV
 
+\paragraph{Data Capture}
+First, we capture two distinct RGB images from the phones camera sensor. At the same time, we also capture the orientation of the camera with the gyroscope sensor. Starting with the first image, we sample the accelerometer to obtain the inertia at discrete points between the two pictures.
+%\paragraph{Epipolar Geometry}
+%First, we detect and match features between the two RGB images to obtain the epipolar geometry.[CITATION NEEDED]
+%Still not sure how that is exactely done
+%Sparse feature matching maybe? e.g. SIFT, SURF, ORB
+%I don't know if this actually works. The slides are kind of ominous.
+\paragraph{Process Sensor Data}
+The inertial data of the accelerometer combined is integrated twice to obtain the positional difference~\cite{Seifert2007,Kok2017}. Here, the numerical integration error accumulates over time. In contrast, the rotational difference between to RGB data sets is obtained by sampling the gyroscope sensor. We will test if the supplied commodity sensors are accurate enough to augment the image rectification process.
+\paragraph{Feature Matching and Optimization}
+After detecting and matching features we then use the methods from the lecture to optimize the transformation with a non-linear solver e.g. Ceres. This step is optional depending on the quality of the sensor data.
+\paragraph{Image Rectification}
+With the calculated translation and rotation, we can rectify the images~\cite{loop1999, Fusiello2000}. 
+\paragraph{Stereo Matching}
+Once rectified, we can apply a stereo matching algorithm e.g. FLANN, Block Matching, PatchMatch ~\cite{Bleyer2011} or PM-Huber ~\cite{Heise2013} to calculate the displacement map. 
+\paragraph{Depth Map}
+The depth map is then calculated by triangulation as discussed in the lecture.
+%it's described in the lecture slides and on stack overflow that way. Have to find a paper though.
+\paragraph{Application}
+We then use the obtained depth map to create an artificial Bokeh effect, by applying a blur effect to all everything closer or farther than an arbitrary chosen depth.
+
+
+With this approach, the accuracy of the depth estimation depends highly on the accuracy, numerical error and sampling frequency of the sensors.
+%Fallback would be basically Bundle Adjustment, which I don't really want to do.
+
+The targeted platform is Android and the technical implementation will be done using java and C++ with the aid of the library OpenCV for various tasks, such as camera calibration or feature detection/matching.
+%Possibly OpenMP or OpenGL (Compute Shaders) for acceleration, depends if performance sucks or not
+
+%
+%
+%Figure: /----> Picture A, Gyrodata A => Epipolar Lines => Rectify \
+%Data Capture--------------------------------------->Inertial Data => Stereo Matching=> Depth => Bokeh	
+%		 \___-> Picture B, Gyrodata B => Epipolar Lines => Rectify /
+%	 	  \			     	 ||
+%		   \___->     Sensor Data B
+\section{Milestones}
+\textbf{Week 24}: Official project start: Project setup
+\textbf{Week 25}: Sensor Data Processing and Image Rectification
+\textbf{Week 26}: Stereo Matching 
+\textbf{Week 27}: Bokeh effect
+\textbf{Week 28}: Feature Matching/Optimization 
+\textbf{Week 29}: Testing
+\textbf{Week 30}: Create Poster
 \section{Requirements}
-List your hardware requirements. E.g. Kinect sensor, Webcam, etc..
-%Possibly a Smartphone with Stereo Capabilites, P30
+If double inertia integration is too inaccurate for rectification an alternate approach would be a stereo camera setup. The issue in finding such a device remains the reluctant vendor implementation of the corresponding Camera2 API. According to google, recent Android P Smartphones allegedly should support this. Yet, e.g. a Nokia 7 Plus does not. Another alternative would be to utilize an external camera via USB in addition to the phones main camera.
+%TL:DR Smartphone with two cameras and API support would be cool, USB camera would probably suffice.
 
 \section{Team}
 
