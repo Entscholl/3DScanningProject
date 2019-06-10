@@ -59,7 +59,7 @@ We then use the obtained depth map to create an artificial Bokeh effect, by appl
 With this approach, the accuracy of the depth estimation depends highly on the accuracy, numerical error and sampling frequency of the sensors.
 %Fallback would be basically Bundle Adjustment, which I don't really want to do.
 
-The targeted platform is Android and the technical implementation will be done using java and C++ with the aid of the library OpenCV for various tasks, such as camera calibration or feature detection/matching. We intend to perform the entire processing pipeline on the device. If we observe insufficient results on the phone and need more processing power, we plan to use the phones to stream to a PC.
+The targeted platform is Android and the technical implementation will be done using java and C++ with the aid of the library OpenCV for various tasks, such as camera calibration or feature detection/matching. We intend to perform the entire processing pipeline on the device. If we observe insufficient results on the phone and need more processing power, we plan to use the phone to stream to a PC.
 %Possibly OpenMP or OpenGL (Compute Shaders) for acceleration, depends if performance sucks or not
 
 %
