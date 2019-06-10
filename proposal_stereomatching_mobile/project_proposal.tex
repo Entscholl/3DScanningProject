@@ -23,9 +23,13 @@
 %Include an overview figure that shows your planned processing pipeline.
 %
 %
-In this project, we aim to build a robust feature detection system which will be more accessible, by utilizing a mobile phones built in hardware. Inspired by Android 9 (Pie)
+In this project, we aim to build a robust feature detection system which will be more accessible, by utilizing a mobile phones built in hardware.
+Inspired by Android 9 (Pie)
 %next version right now would be Android Q (10)
-providing an API for multiple cameras ~\cite{AndroidPMultiCamera}, doing true stereo matching on mobile might become much easier. Currently, most Stereo Matching algorithms take two pictures sequentially and rely on the accelerometer and gyroscope to detect the positional disparity. We have two options for our project - we use the same technique (use only 1 camera, take 2 pictures sequentially and the information from the accelerometer and gyroscope) or use a phone with 2 cameras (in this case, we have a Stereo Setup).Finally, we demonstrate the usability of our feature matching by applying a Bokeh effect to one of the input images.
+providing an API for multiple cameras ~\cite{AndroidPMultiCamera}, doing true stereo matching on mobile might become much easier.
+Currently, most Stereo Matching algorithms take two pictures sequentially and rely on the accelerometer and gyroscope to detect the positional disparity.
+We have two options for our project - we use the same technique (use only 1 camera, take 2 pictures sequentially and the information from the accelerometer and gyroscope) or use a phone with 2 cameras (in this case, we have a Stereo Setup).
+Finally, we demonstrate the usability of our feature matching by applying a Bokeh effect to one of the input images.
 \begin{figure}[h]
 	\centering
 	\includegraphics[scale=0.55]{Pipeline.PNG}
@@ -35,27 +39,33 @@ providing an API for multiple cameras ~\cite{AndroidPMultiCamera}, doing true st
 % Camera calibration for intrinsic parameters necessary, e.g. OpenCV
 
 \paragraph{Data Capture}
-First, we capture two distinct RGB images from the phones camera sensor. In case of using only 1 camera (non Stereo Setup), we have to, at the same time, also capture the orientation of the camera with the gyroscope sensor. Starting with the first image, we sample the accelerometer to obtain the inertia at discrete points between the two pictures.
+First, we capture two distinct RGB images from the phones camera sensor.
+In case of using only 1 camera (non Stereo Setup), we have to, at the same time, also capture the orientation of the camera with the gyroscope sensor.
+Starting with the first image, we sample the accelerometer to obtain the inertia at discrete points between the two pictures.
 %\paragraph{Epipolar Geometry}
 %First, we detect and match features between the two RGB images to obtain the epipolar geometry.[CITATION NEEDED]
 %Still not sure how that is exactely done
 %Sparse feature matching maybe? e.g. SIFT, SURF, ORB
 %I don't know if this actually works. The slides are kind of ominous.
 \paragraph{Process Sensor Data - for a non Stereo Setup}
-This step is needed in case of using a non Stereo Setup (1 camera).The inertial data of the accelerometer combined is integrated twice to obtain the positional difference~\cite{Seifert2007,Kok2017}. Here, the numerical integration error accumulates over time. In contrast, the rotational difference between to RGB data sets is obtained by sampling the gyroscope sensor. We will test if the supplied commodity sensors are accurate enough to augment the image rectification process.
+This step is needed in case of using a non Stereo Setup (1 camera).
+The inertial data of the accelerometer combined is integrated twice to obtain the positional difference~\cite{Seifert2007,Kok2017}.
+Here, the numerical integration error accumulates over time. In contrast, the rotational difference between to RGB data sets is obtained by sampling the gyroscope sensor.
+We will test if the supplied commodity sensors are accurate enough to augment the image rectification process.
 \paragraph{Feature Matching and Optimization - for a non Stereo Setup}
-This step is needed in case of using a non Stereo Setup (1 camera).After detecting and matching features we then use the methods from the lecture to optimize the transformation with a non-linear solver e.g. Ceres. This step is optional depending on the quality of the sensor data.
+This step is needed in case of using a non Stereo Setup (1 camera).
+After detecting and matching features we then use the methods from the lecture to optimize the transformation with a non-linear solver e.g. Ceres.
+This step is optional depending on the quality of the sensor data.
 \paragraph{Image Rectification - for non Stereo Setup}
-This step is needed in case of using a non Stereo Setup (1 camera).With the calculated translation and rotation, we can rectify the images~\cite{loop1999, Fusiello2000}. 
+This step is needed in case of using a non Stereo Setup (1 camera).
+With the calculated translation and rotation, we can rectify the images~\cite{loop1999, Fusiello2000}. 
 \paragraph{Stereo Matching}
-Once rectified(in case of using 2 cameras we take the images directly), we can apply a stereo matching algorithm e.g. FLANN, Block Matching, PatchMatch ~\cite{Bleyer2011} or PM-Huber ~\cite{Heise2013} to calculate the displacement map. 
+Once rectified (in case of using 2 cameras we take the images directly), we can apply a stereo matching algorithm e.g. FLANN, Block Matching, PatchMatch ~\cite{Bleyer2011} or PM-Huber ~\cite{Heise2013} to calculate the displacement map. 
 \paragraph{Depth Map}
 The Depth map is then calculated by Triangulation as discussed in the lecture.
 %it's described in the lecture slides and on stack overflow that way. Have to find a paper though.
 \paragraph{Application}
-We then use the obtained depth map to create an artificial Bokeh effect, by applying a blur effect to all everything closer or farther than an arbitrary chosen depth.
-
-
+We then use the obtained depth map to create an artificial Bokeh effect, by applying a blur effect to all everything closer or farther than an arbitrary chosen depth.\\\\
 With this approach, the accuracy of the depth estimation depends highly on the accuracy, numerical error and sampling frequency of the sensors.
 %Fallback would be basically Bundle Adjustment, which I don't really want to do.
 
@@ -71,8 +81,8 @@ The targeted platform is Android and the technical implementation will be done u
 %		   \___->     Sensor Data B
 \section{Milestones}
 \textbf{Week 24}: Official project start: Project setup\newline
-\textbf{Week 25}: Sensor Data Processing and Image Rectification\newline
-\textbf{Week 26}: Stereo Matching\newline
+\textbf{Week 25}: Stereo Matching\newline
+\textbf{Week 26}: Sensor Data Processing and Image Rectification\newline
 \textbf{Week 27}: Bokeh effect\newline
 \textbf{Week 28}: Feature Matching/Optimization \newline
 \textbf{Week 29}: Testing\newline
