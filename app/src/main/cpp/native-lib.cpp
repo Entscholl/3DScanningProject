@@ -1,15 +1,11 @@
 
+#include "StdHeader.h"
 
-#include <jni.h>
-#include <string>
 
 #include <opencv2/core.hpp>
-#include <android/log.h>
 #include <omp.h>
+#include "AccelerometerMeasuring.h"
 
-#define  LOG_TAG    "libgl2jni"
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
-#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_stereoreconstruction_MainActivity_stringFromJNI(
@@ -22,4 +18,22 @@ Java_com_example_stereoreconstruction_MainActivity_stringFromJNI(
 	cv::Mat testMat(10,10,CV_8UC1);
 	std::string hello = "Hello from C++";
 	return env->NewStringUTF(hello.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_initMeasurement(JNIEnv * env, jobject) {
+	LOGI("Init Measurement");
+	const auto x = AccelerometerMeasure::getInstance();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_startMeasurement(JNIEnv * env, jobject) {
+	LOGI("Start Measurement");
+	AccelerometerMeasure::getInstance()->startMeasure();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_stopMeasurement(JNIEnv * env, jobject) {
+	LOGI("Stop Measurement");
+	AccelerometerMeasure::getInstance()->stopMeasure();
 }
