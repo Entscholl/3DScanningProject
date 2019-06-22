@@ -9,8 +9,10 @@
 #include <android/sensor.h>
 #include <memory>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/mat.hpp>
 #include <atomic>
 #include <chrono>
+#include "Quaternion.h"
 
 class AccelerometerMeasure {
 		friend int accelerometer_callback(int fd, int event, void * data);
@@ -18,7 +20,7 @@ class AccelerometerMeasure {
 
 		ASensorManager * _sensor_manager;
 		const ASensor * _accelerometer;
-		const ASensor * _gyroscope;
+		const ASensor * _orientation_sensor;
 		ALooper* _accelerometer_looper;
 		ALooper* _gyroscope_looper;
 		ASensorEventQueue* _accelerometer_event_queue;
@@ -31,21 +33,24 @@ class AccelerometerMeasure {
 		std::atomic<bool> _startMeasuring;
 
 		std::atomic<bool> _timestamp_delta_t_valid = false;
-		int64_t _timestampeDelta_t;
-		double _kalman_delta_t=0;
 
 		struct MeasurementData{
 				cv::Vec3d value;
 				std::chrono::high_resolution_clock::time_point timestamp;
 		};
 		std::vector<MeasurementData> _accelerometer_measurements;
+
+		Quaternion<float> _start_Orientation;
+		Quaternion<float> _final_Orientation;
+
+		bool _is_first_orientation = true;
 public:
 		AccelerometerMeasure();
 
 		~AccelerometerMeasure();
 		void startMeasure();
 
-		void stopMeasure();
+		cv::Matx44f stopMeasure();
 
 		cv::Vec3d baseAccelerometerValue() const{
 			cv::Vec3d avg{0,0,0};
@@ -62,5 +67,6 @@ public:
 			return _sAccelSingleton.get();
 		}
 };
+cv::Mat getRotationMatrixFromQuaternion(Quaternion<float> &quat);
 
 #endif //INC_3DSCANNINGPROJECT_ACCELEROMETERMEASURING_H
