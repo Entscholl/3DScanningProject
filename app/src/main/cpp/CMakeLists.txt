@@ -21,6 +21,7 @@ add_library( # Sets the name of the library.
              native-lib.cpp
              AccelerometerMeasuring.cpp
              Quaternion.cpp
+             CameraStuff.cpp
         )
 
 
@@ -54,7 +55,10 @@ message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
 
 target_link_libraries( # Specifies the target library.
                        native-lib
+                        android
+                        camera2ndk
+                        mediandk
                        ${OpenCV_LIBS}
                        # Links the target library to the log library
                        # included in the NDK.
-                       ${log-lib} )
+                       ${log-lib})
