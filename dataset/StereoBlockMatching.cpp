@@ -24,13 +24,13 @@ int main() {
 
 
 	//the disparity range defines how many pixels away from the block's location
-    // in the first image to search for a matching block in the other image. I tried with this, not sure what we need for our photos.
+        // in the first image to search for a matching block in the other image. I tried with this, not sure what we need for our photos.
 	
 	int disparityMIN = -50, disparityMAX = 50;
 	int disparityRANGE = disparityMAX - disparityMIN;
 
 	//the size of the blocks for block matching
-    int halfBlockSize = 3;
+        int halfBlockSize = 3;
 
 	//int blockSize = 2 * halfBlockSize + 1;
 
