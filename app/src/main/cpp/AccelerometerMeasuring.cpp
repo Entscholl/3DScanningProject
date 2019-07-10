@@ -161,7 +161,7 @@ cv::Matx44f AccelerometerMeasure::stopMeasure() {
 	transform(cv::Range(0,3),cv::Range(0,3)) = rot;
 	transform.at<float>(0,3)= static_cast<float>(pos(0));
 	transform.at<float>(1,3)= static_cast<float>(pos(1));
-	transform.at<float>() = static_cast<float>(pos(2));
+	transform.at<float>(2,3) = static_cast<float>(pos(2));
 	return transform;
 }
 
