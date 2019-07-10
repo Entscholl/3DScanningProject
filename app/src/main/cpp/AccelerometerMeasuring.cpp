@@ -6,6 +6,7 @@
 
 #include <opencv2/video/tracking.hpp>
 
+constexpr double baselineAlpha=0.2;
 
 int accelerometer_callback(int fd, int events, void *data) {
 	ASensorEvent event;
@@ -20,10 +21,7 @@ int accelerometer_callback(int fd, int events, void *data) {
 				_this->_accelerometer_measurements.push_back({std::move(accVec),
 				                                              std::chrono::high_resolution_clock::now()});
 			} else {
-				if (_this->_accel_history.size() >= AccelerometerMeasure::HISTORY_SIZE) {
-					_this->_accel_history.pop_front();
-				}
-				_this->_accel_history.emplace_back(std::move(accVec));
+				_this->_accel_baseline = baselineAlpha*accVec+(1-baselineAlpha)*_this->_accel_baseline;
 			}
 		}
 		if (event.type == ASENSOR_TYPE_ROTATION_VECTOR) {
@@ -86,7 +84,6 @@ ASensorManager *AcquireASensorManagerInstance() {
 }
 
 AccelerometerMeasure::AccelerometerMeasure() {
-	_accel_history.resize(HISTORY_SIZE);
 	_accelerometer_measurements.resize(6000);
 
 	_sensor_manager = AcquireASensorManagerInstance();
@@ -115,6 +112,7 @@ AccelerometerMeasure::AccelerometerMeasure() {
 
 void AccelerometerMeasure::startMeasure() {
 	_base_accel = baseAccelerometerValue();
+	_accelerometer_measurements.clear();
 	_startMeasuring = true;
 	_is_first_orientation = true;
 
@@ -125,18 +123,27 @@ cv::Matx44f AccelerometerMeasure::stopMeasure() {
 
 	cv::Vec3d pos{0, 0, 0};
 	cv::Vec3d vel{0, 0, 0};
+
+	cv::Vec3d accelFilt {0,0,0};
 	for (size_t i = 1; i < _accelerometer_measurements.size(); ++i) {
 		cv::Mat mesMat(3, 1, CV_64F);
+		if(_accelerometer_measurements[i].value(0) < 0.01 &&
+				_accelerometer_measurements[i].value(1) < 0.01 &&
+				_accelerometer_measurements[i].value(2) < 0.01
+				){
+			continue;
+		}
 		auto accel = _accelerometer_measurements[i].value - _base_accel;
 		double deltaT = (double) std::chrono::duration_cast<std::chrono::nanoseconds>
 				(_accelerometer_measurements[i].timestamp -
 				 _accelerometer_measurements[i - 1].timestamp).count();
 		deltaT /= std::nano::den;
-		if (accel.dot(accel) < 0.01) {
-			accel = {0, 0, 0};
+		accelFilt = accel*0.5+0.5*accelFilt;
+		if (accelFilt.dot(accelFilt) < 0.02) {
+			accelFilt = {0, 0, 0};
 		}
-		vel += accel * deltaT;
-		pos += accel * 0.5 * deltaT * deltaT + vel * deltaT;
+		vel += accelFilt * deltaT;
+		pos += accelFilt * 0.5 * deltaT * deltaT + vel * deltaT;
 
 	};
 
