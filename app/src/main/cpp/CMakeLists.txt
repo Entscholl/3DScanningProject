@@ -22,6 +22,7 @@ add_library( # Sets the name of the library.
              AccelerometerMeasuring.cpp
              Quaternion.cpp
              CameraStuff.cpp
+             BokehEffect.cpp
         )
 
 
