@@ -23,6 +23,7 @@ add_library( # Sets the name of the library.
              StereoDepthPipeline.cpp
              Quaternion.cpp
              CameraStuff.cpp
+             BokehEffect.cpp
         )
 
 
