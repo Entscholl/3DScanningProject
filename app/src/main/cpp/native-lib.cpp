@@ -4,10 +4,11 @@
 #include <android/native_window_jni.h>
 
 #include <opencv2/core.hpp>
-#include <omp.h>
 #include <opencv2/imgproc/types_c.h>
+#include <omp.h>
 #include "AccelerometerMeasuring.h"
 #include "CameraStuff.h"
+#include "StereoDepthPipeline.h"
 extern "C" {
 
 JNIEXPORT jstring JNICALL
@@ -22,88 +23,86 @@ Java_com_example_stereoreconstruction_MainActivity_stringFromJNI(
 	std::string hello = "Hello from C++";
 	return env->NewStringUTF(hello.c_str());
 }
-JNIEXPORT void JNICALL
+JNIEXPORT jint JNICALL
 Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jobject,
         jlong addrInputA, jlong addrInputB, jlong addrOutputMat) {
     LOGI("Starting Image Processing");
     double start = omp_get_wtime();
-    //cv::Mat test(StereoReconstruction::Camera::current_picture_width ,
-    //             StereoReconstruction::Camera::current_picture_height,CV_8UC3,
-    //             StereoReconstruction::Camera::current_picture.get(),
-    //             StereoReconstruction::Camera::current_picture_width * 1);
 
 
     cv::Mat *output = reinterpret_cast<cv::Mat*>(addrOutputMat);
     cv::Mat *inputA = reinterpret_cast<cv::Mat*>(addrInputA);
     cv::Mat *inputB = reinterpret_cast<cv::Mat*>(addrInputB);
-	/*
-    cv::Mat A;
-    cv::Mat B;
-    cv::Mat temp_result;
-    cv::cvtColor(*inputA, A, CV_BGR2GRAY);
-    cv::cvtColor(*inputB, B, CV_BGR2GRAY);
-    cv::Mat cameraMatrix[2], distCoeffs[2];
-    */
-    /*
-    cameraMatrix[0] = cv::initCameraMatrix2D({},{},inputA->size(),0);
-    cameraMatrix[1] = cv::initCameraMatrix2D({},{},inputA->size(),0);
-    cv::Mat R, T, E, F;
+    if(inputA->rows == 0 || inputA->cols == 0 ||
+        inputB->rows == 0 || inputB->cols == 0) {
+        return -1;
+    }
+    StereoReconstruction::StereoDepthPipeline& pipeline = StereoReconstruction::StereoDepthPipeline::instance();
+    pipeline.set_input_A(inputA);
+    pipeline.set_input_B(inputB);
+    pipeline.stereo_match(output);
 
-    double rms = stereoCalibrate({}, {}, {},
-                                 cameraMatrix[0], distCoeffs[0],
-                                 cameraMatrix[1], distCoeffs[1],
-                                 inputA->size(), R, T, E, F,
-                                 cv::CALIB_FIX_ASPECT_RATIO +
-                                 cv::CALIB_ZERO_TANGENT_DIST +
-                                 cv::CALIB_USE_INTRINSIC_GUESS +
-                                 cv::CALIB_SAME_FOCAL_LENGTH +
-                                 cv::CALIB_RATIONAL_MODEL +
-                                 cv::CALIB_FIX_K3 + cv::CALIB_FIX_K4 + cv::CALIB_FIX_K5,
-                                 cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 100, 1e-5) );
-    LOGI("Done with stereo calibration RMS: %f", rms);
-    */
-    /*
-    cv::Mat R1, R2, P1, P2, Q, R, T;
-    cameraMatrix[0] = cv::Mat::eye(3,3, CV_64F);
-    cameraMatrix[1] = cv::Mat::eye(3,3, CV_64F);
-    R = cv::Mat::eye(3, 3, CV_64F);
-    T = cv::Mat::zeros(3, 1, CV_64F);
-
-    cv::stereoRectify(cameraMatrix[0], distCoeffs[0],
-                  cameraMatrix[1], distCoeffs[1],
-                  A.size(), R, T, R1, R2, P1, P2, Q,
-                  cv::CALIB_ZERO_DISPARITY, 1);
-
-    cv::Mat remap[2][2];
-
-    initUndistortRectifyMap(cameraMatrix[0], distCoeffs[0], R1, P1, inputA->size(), CV_16SC2,
-            remap[0][0], remap[0][1]);
-    initUndistortRectifyMap(cameraMatrix[1], distCoeffs[1], R2, P2, inputA->size(), CV_16SC2,
-            remap[1][0], remap[1][1]);
-
-    cv::Mat A_rectified;
-    cv::Mat B_rectified;
-
-    cv::remap(A, A_rectified, remap[0][0], remap[0][1], cv::INTER_LINEAR);
-    cv::remap(B, B_rectified, remap[1][0], remap[1][1], cv::INTER_LINEAR);
-    //call Rectify(Image A, delta Pose?);
-    //call Rectify(Image B, delta Pose);
-
-    //call StereoMatching(Image rekt_A, Image rekt_B)
-    auto stereo = cv::StereoBM::create(32,7);
-    stereo->compute(A_rectified, B_rectified, temp_result );
-
-    cv::resize(temp_result, *output, cv::Size(1100,2000));
-    //call Triangulation(???)
-    */
-    //return depth_map
-    //*output = disparity;
-    //Then launch new Activity which displays the result.
-    //TODO resize accordingly to display size
-	cv::resize(*inputA, *inputA, cv::Size(1100,2000));
     double end = omp_get_wtime();
     LOGI("Image Processing took: %fs", end-start);
+    return 0;
 }
+JNIEXPORT jint JNICALL
+Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jobject,
+                                                                 jlong addrInputA, jlong addrInputB) {
+    LOGI("Starting Image Processing");
+    double start = omp_get_wtime();
+
+    cv::Mat *inputA = reinterpret_cast<cv::Mat*>(addrInputA);
+    cv::Mat *inputB = reinterpret_cast<cv::Mat*>(addrInputB);
+    if(inputA->rows == 0 || inputA->cols == 0 ||
+       inputB->rows == 0 || inputB->cols == 0) {
+        return -1;
+    }
+    StereoReconstruction::StereoDepthPipeline& pipeline = StereoReconstruction::StereoDepthPipeline::instance();
+    pipeline.set_input_A(inputA);
+    pipeline.set_input_B(inputB);
+    cv::Mat cameraMatrix[2], distCoeffs[2];
+    for(int i = 0; i <2; i++) {
+        distCoeffs[i].ones(1, 5, CV_64F);
+        if(StereoReconstruction::Camera::distortion_set) {
+            distCoeffs[i].zeros(1, 5, CV_64F);
+            // kappa_1
+            distCoeffs[i].at<double>(0, 0) = StereoReconstruction::Camera::distortion[0];
+            // kappa_2
+            distCoeffs[i].at<double>(0, 1) = StereoReconstruction::Camera::distortion[1];
+            // tangential lens distortion
+            distCoeffs[i].at<double>(0, 2) = StereoReconstruction::Camera::distortion[3];
+            // tangential lens distortion
+            distCoeffs[i].at<double>(0, 3) = StereoReconstruction::Camera::distortion[4];
+            // kappa_3
+            distCoeffs[i].at<double>(0, 4) = StereoReconstruction::Camera::distortion[2];
+        }
+        cameraMatrix[i] = cv::Mat::eye(3,3, CV_64F);
+        if(StereoReconstruction::Camera::intrinsics_set) {
+            // f_x
+            cameraMatrix[i].at<double>(0, 0) = StereoReconstruction::Camera::intrinsics[0];
+            // f_y
+            cameraMatrix[i].at<double>(1, 1) = StereoReconstruction::Camera::intrinsics[1];
+            // c_x
+            cameraMatrix[i].at<double>(0, 2) = StereoReconstruction::Camera::intrinsics[2];
+            // c_y
+            cameraMatrix[i].at<double>(1, 2) = StereoReconstruction::Camera::intrinsics[3];
+            // s
+            cameraMatrix[i].at<double>(0, 1) = StereoReconstruction::Camera::intrinsics[4];
+        }
+    }
+    pipeline.set_camera_matrix_A(cameraMatrix[0]);
+    pipeline.set_camera_matrix_B(cameraMatrix[1]);
+    pipeline.set_distortion_coefficients_A(distCoeffs[0]);
+    pipeline.set_distortion_coefficients_B(distCoeffs[1]);
+    pipeline.rectify();
+
+    double end = omp_get_wtime();
+    LOGI("Image Rectifying took: %fs", end-start);
+    return 0;
+}
+
+
 JNIEXPORT void JNICALL
 Java_com_example_stereoreconstruction_MainActivity_initMeasurement(JNIEnv *env, jobject) {
 	LOGI("Init Measurement");
@@ -120,11 +119,19 @@ Java_com_example_stereoreconstruction_MainActivity_stopMeasurement(JNIEnv *env, 
 	AccelerometerMeasure::getInstance()->stopMeasure();
 }
 JNIEXPORT void JNICALL
-Java_com_example_stereoreconstruction_MainActivity_startCameraPreview(JNIEnv *env, jobject instance,
-                                                                      jobject surfaceView) {
-    StereoReconstruction::Camera::init(env, surfaceView);
+Java_com_example_stereoreconstruction_MainActivity_startCameraPreview(JNIEnv *env, jobject instance) {
+    StereoReconstruction::Camera::start_preview_();
+}
+JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_setUpCameraSession(JNIEnv *env, jobject instance) {
+    StereoReconstruction::Camera::set_up_session();
 }
 
+JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_initCamera(JNIEnv *env, jobject instance,
+                                                              jobject surfaceView) {
+    StereoReconstruction::Camera::init(env, surfaceView);
+}
 JNIEXPORT void JNICALL
 Java_com_example_stereoreconstruction_MainActivity_stopCameraPreview(JNIEnv *env,
                                                                      jobject instance) {

@@ -5,6 +5,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -27,12 +28,16 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+
+import static org.opencv.imgproc.Imgproc.*;
 
 import java.io.Serializable;
 
 
 public class MainActivity extends AppCompatActivity {
-
+	Context context;
 	Mat outputImageMat;
 	Mat inputImageA;
 	Mat inputImageB;
@@ -69,16 +74,17 @@ public class MainActivity extends AppCompatActivity {
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
+		context = this;
 		initMeasurement();
 		super.onCreate(savedInstanceState);
 
 		setContentView(R.layout.activity_main);
-
 		if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
 			ActivityCompat.requestPermissions(
 					this,
 					new String[] { Manifest.permission.CAMERA },
 					1);
+			Toast.makeText(context, "No Camera Permission" ,Toast.LENGTH_SHORT).show();
 			Log.e("3dscanning", "No Camera Permission");
 			return;
 		}
@@ -89,8 +95,10 @@ public class MainActivity extends AppCompatActivity {
 			public void surfaceCreated(SurfaceHolder holder) {
 
 				Log.v("3dscanning", "surface created.");
-				holder.setFixedSize(640, 480);
-				startCameraPreview(holder.getSurface());
+
+				//Todo currently hardcoded
+				holder.setFixedSize(1920, 1080);
+				initCamera(holder.getSurface());
 			}
 			@Override
 			public void surfaceDestroyed(SurfaceHolder holder) {
@@ -98,6 +106,9 @@ public class MainActivity extends AppCompatActivity {
 			}
 			@Override
 			public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+				Log.i("3dscanning", "New Preview Size: " + width + ", " + height);
+				setUpCameraSession();
+				startCameraPreview();
 			}
 		});
 
@@ -133,47 +144,79 @@ public class MainActivity extends AppCompatActivity {
 	}
 	public void onCalculateButton(View view) {
 
-		//Bitmap bmA = BitmapFactory.decodeResource(getResources(), R.drawable.im0);
-		//Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
-		//Utils.bitmapToMat(bmA, inputImageA);
-		//Utils.bitmapToMat(bmB, inputImageB)
 		//TODO start the image processing here
-		if (capturedA && capturedB) {
-			processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-					outputImageMat.getNativeObjAddr());
-			Intent intent = new Intent(this, ShowImageActivity.class);
-			intent.putExtra("Mat", outputImageMat.getNativeObjAddr());
-			startActivity(intent);
+		if (!capturedA || !capturedB) {
+			Toast.makeText(context, "No images captured, using defaults" ,
+					Toast.LENGTH_SHORT).show();
+			Bitmap bmA = BitmapFactory.decodeResource(getResources(), R.drawable.im0);
+			Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
+			Utils.bitmapToMat(bmA, inputImageA);
+			Utils.bitmapToMat(bmB, inputImageB);
+		}
+		Toast.makeText(context, "Calculating..." ,Toast.LENGTH_LONG).show();
+		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+				outputImageMat.getNativeObjAddr());
+		if(status == 0) {
+			displayCVMatrix(outputImageMat);
 		} else {
-			Toast.makeText(this, "No images captured", Toast.LENGTH_SHORT).show();
+			if(status == -1) {
+				Toast.makeText(context, "Empty images" ,Toast.LENGTH_SHORT).show();
+			}
 		}
 	}
-	public void onDisplayImage(View view) {
-		//TODO same for Picture B
+	public void displayCVMatrix(Mat mat) {
+		//TODO handle landscape
+		//TODO lifecycle issue when displaying matrix, somehow others get invalid after
+		//changing activites
+		Mat output = new Mat();
+		//TODO get actual Display Size
+
+		Imgproc.resize(mat, output, new Size(1100,2000));
+
+		Intent intent = new Intent(this, ShowImageActivity.class);
+		intent.putExtra("Mat", output.getNativeObjAddr());
+		startActivity(intent);
+	}
+	public void onDisplayImageA(View view) {
 		if (capturedA) {
-			processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-					outputImageMat.getNativeObjAddr());
-			Intent intent = new Intent(this, ShowImageActivity.class);
-			intent.putExtra("Mat", inputImageA.getNativeObjAddr());
-			startActivity(intent);
+			displayCVMatrix(inputImageA);
 		} else {
-			Toast.makeText(this, "No images captured", Toast.LENGTH_SHORT).show();
+			Toast.makeText(context, "No image captured", Toast.LENGTH_SHORT).show();
 		}
+	}
+	public void onDisplayImageB(View view) {
+		if (capturedB) {
+			displayCVMatrix(inputImageB);
+		} else {
+			Toast.makeText(context, "No image captured", Toast.LENGTH_SHORT).show();
+		}
+	}
+	public void onRectifyButton(View view) {
+		if (!capturedA || !capturedB) {
+			Toast.makeText(context, "No images captured, error" ,
+					Toast.LENGTH_SHORT).show();
+		}
+		rectifyImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr());
 	}
 	public void onTakeImageButton(View view) {
-		//TODO redesign this stuff here and combine with calculate
-		if(capturedA) {
+		if(capturedA && !capturedB) {
 			capturedB = true;
 			//TODO don't do this stuff here
 			inputImageB = new Mat(480, 640, CvType.CV_8UC3);
 			takePicture(inputImageB.getNativeObjAddr());
-			//TODO stop measuring here
-		} else {
+			stopMeasurement();
+		} else if (!capturedA) {
 			capturedA = true;
 			//TODO don't do this stuff here
 			inputImageA = new Mat(480, 640, CvType.CV_8UC3);
 			takePicture(inputImageA.getNativeObjAddr());
-			//TODO start measuring here
+			startMeasurement();
+		} else {
+			capturedB = false;
+			capturedA = true;
+			inputImageA = new Mat(480, 640, CvType.CV_8UC3);
+			takePicture(inputImageA.getNativeObjAddr());
+			startMeasurement();
 		}
 	}
 	/**
@@ -181,11 +224,15 @@ public class MainActivity extends AppCompatActivity {
 	 * which is packaged with this application.
 	 */
 	public native String stringFromJNI();
-	public native void startCameraPreview(Surface surfaceView);
+	public native void setUpCameraSession();
+	public native void startCameraPreview();
+	public native void initCamera(Surface surfaceView);
 	public native void stopCameraPreview();
 	public native void takePicture(long output_mat_addr);
 	public native void initMeasurement();
 	public native void startMeasurement();
 	public native void stopMeasurement();
-	public native void processImages(long inputMatA, long inputMatB, long outputMatAddr);
+	public native void rectifyImages(long inputMatA, long inputMatB);
+
+	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr);
 }

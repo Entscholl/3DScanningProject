@@ -1,5 +1,10 @@
 #include "CameraStuff.h"
 cv::Mat* StereoReconstruction::Camera::output_mat;
+bool StereoReconstruction::Camera::intrinsics_set;
+bool StereoReconstruction::Camera::distortion_set;
+float StereoReconstruction::Camera::intrinsics[5];
+float StereoReconstruction::Camera::distortion[5];
+
 static void on_disconnect(void *context, ACameraDevice *device) {
     LOGI("Camera: %s, is disconnected", ACameraDevice_getId(device));
 }
@@ -67,13 +72,14 @@ static void on_image_taken(void* context, AImageReader* image_reader)
 
         auto current_data = std::make_unique<std::uint8_t []>(
                 static_cast<size_t>(Y_len + V_len + 1));
-        LOGI("num_planes: %d", num_planes);
 
 
         std::memcpy(&(current_data.get()[0]), Y_data, static_cast<size_t>(Y_len));
         std::memcpy(&(current_data.get()[Y_len]), V_data, static_cast<size_t>(V_len + 1));
         cv::Mat mYUV((height *3) /2, width, CV_8UC1, (void*) current_data.get());
         //StereoReconstruction::Camera::output_mat->resize(height, width);
+        cv::resize(*StereoReconstruction::Camera::output_mat,
+                *StereoReconstruction::Camera::output_mat, cv::Size(width,height));
         assert(StereoReconstruction::Camera::output_mat->cols == width);
         assert(StereoReconstruction::Camera::output_mat->rows == height);
         assert(StereoReconstruction::Camera::output_mat->type() == CV_8UC3);
@@ -141,36 +147,7 @@ bool StereoReconstruction::Camera::open(uint32_t camera_id) {
                 selected_camera_id.c_str(), camera_status);
         return false;
     }
-    ACameraMetadata_const_entry entry;
-    ACameraMetadata_getConstEntry(camera_characteristics,
-            ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, &entry);
-    int32_t current_width = ANativeWindow_getWidth(window);
-    int32_t current_height =ANativeWindow_getHeight(window);
-    int32_t resize[2] = {640, 480};
-    supported_formats.reserve(entry.count/4);
-    for (int i = 0; i < entry.count; i += 4)
-    {
-        // We are only interested in output streams, so skip input stream
-        int32_t input = entry.data.i32[i + 3];
-        //if (input)
-        //    continue;
-        int32_t format = entry.data.i32[i + 0];
-        int32_t width = entry.data.i32[i + 1];
-        int32_t height = entry.data.i32[i + 2];
-
-        if(is_same_ratio(current_width, current_height, width, height)&& current_width > width &&
-            current_height > height) {
-            resize[0] = width;
-            resize[1] = height;
-        }
-        supported_formats.emplace_back(width, height, format);
-        std::string format_string = Format::type_to_string(format);
-        LOGI("Available Stream Config Input: %d, Size(%d, %d), Format: %s", input, width, height,
-                format_string.c_str());
-    }
-    //ANativeWindow_setBuffersGeometry(window,resize[0],resize[1], ANativeWindow_getFormat(window));
-
-    LOGI("Chose: Size(%d, %d)", resize[0], resize[1]);
+    handle_meta_data(camera_characteristics);
 
     device_callbacks.onDisconnected = on_disconnect;
     device_callbacks.onError = on_error;
@@ -193,23 +170,37 @@ bool StereoReconstruction::Camera::open(uint32_t camera_id) {
 }
 
 void StereoReconstruction::Camera::close() {
-    for(auto& request : requests) {
-        if(request.output_container != NULL) {
-            ACaptureSessionOutputContainer_free(request.output_container);
-            request.output_container = NULL;
-        }
-        if(request.capture_request != NULL) {
-            ACaptureRequest_free(request.capture_request);
-            request.capture_request = NULL;
-        }
-        if(request.camera_output_target != NULL) {
-            ACameraOutputTarget_free(request.camera_output_target);
-            request.camera_output_target = NULL;
-        }
-        if(request.session_output != NULL) {
-            ACaptureSessionOutput_free(request.session_output);
-            request.session_output = NULL;
-        }
+    if(output_container != NULL) {
+        ACaptureSessionOutputContainer_free(output_container);
+        output_container = NULL;
+    }
+    if(camera_session != NULL) {
+        ACameraCaptureSession_close(camera_session);
+        camera_session = NULL;
+    }
+    if(preview.capture_request != NULL) {
+        ACaptureRequest_free(preview.capture_request);
+        preview.capture_request = NULL;
+    }
+    if(preview.camera_output_target != NULL) {
+        ACameraOutputTarget_free(preview.camera_output_target);
+        preview.camera_output_target = NULL;
+    }
+    if(preview.session_output != NULL) {
+        ACaptureSessionOutput_free(preview.session_output);
+        preview.session_output = NULL;
+    }
+    if(capture.capture_request != NULL) {
+        ACaptureRequest_free(capture.capture_request);
+        capture.capture_request = NULL;
+    }
+    if(capture.camera_output_target != NULL) {
+        ACameraOutputTarget_free(capture.camera_output_target);
+        capture.camera_output_target = NULL;
+    }
+    if(capture.session_output != NULL) {
+        ACaptureSessionOutput_free(capture.session_output);
+        capture.session_output = NULL;
     }
     if(camera_device != NULL) {
         ACameraDevice_close(camera_device);
@@ -222,15 +213,202 @@ void StereoReconstruction::Camera::close() {
 
 }
 
-void StereoReconstruction::Camera::take_picture(ACameraDevice_request_template template_id,
-        ACameraDevice *_device, Format format) {
-    Request new_request;
+void StereoReconstruction::Camera::take_picture() {
+    camera_status_t camera_status;
+    if(camera_session  && capture.capture_request) {
+        camera_status = ACameraCaptureSession_capture(camera_session, NULL, 1,
+                                                      &capture.capture_request, NULL);
+        if (camera_status != ACAMERA_OK) {
+            LOGE("Error %d occured while setting repeating captures with camera", camera_status);
+        }
+    } else {
+        LOGE("No valid Session/Capture Request");
+    }
+}
+
+void StereoReconstruction::Camera::start_preview() {
+    camera_status_t camera_status;
+    if(camera_session && preview.capture_request) {
+        camera_status = ACameraCaptureSession_setRepeatingRequest(camera_session, NULL, 1,
+                                                                  &preview.capture_request, NULL);
+        if(camera_status != ACAMERA_OK) {
+            LOGE("Error %d occured while setting repeating captures with camera", camera_status);
+        }
+    } else {
+        LOGE("No valid Session/Capture Request");
+    }
+}
+
+void StereoReconstruction::Camera::handle_meta_data(ACameraMetadata *camera_characteristics) {
+    camera_status_t camera_status;
+    ACameraMetadata_const_entry entry;
+    camera_status = ACameraMetadata_getConstEntry(camera_characteristics,
+                                  ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, &entry);
+
+    if(camera_status == ACAMERA_OK) {
+        int32_t current_width = ANativeWindow_getWidth(window);
+        int32_t current_height = ANativeWindow_getHeight(window);
+        int32_t resize[2] = {1920, 1080};
+        supported_formats.reserve(entry.count / 4);
+        for (int i = 0; i < entry.count; i += 4) {
+            int32_t input = entry.data.i32[i + 3];
+            //if (input)
+            //    continue;
+            int32_t format = entry.data.i32[i + 0];
+            int32_t width = entry.data.i32[i + 1];
+            int32_t height = entry.data.i32[i + 2];
+
+            if (is_same_ratio(current_width, current_height, width, height) &&
+                current_width > width &&
+                current_height > height) {
+                resize[0] = width;
+                resize[1] = height;
+            }
+            supported_formats.emplace_back(width, height, format);
+            std::string format_string = Format::type_to_string(format);
+            LOGI("Available Stream Config Input: %d, Size(%d, %d), Format: %s", input, width,
+                 height,
+                 format_string.c_str());
+        }
+        LOGI("Chose: Size(%d, %d)", resize[0], resize[1]);
+        //Does not work for some reason
+        //int result = ANativeWindow_setBuffersGeometry(window, resize[0],resize[1], 0);
+        //LOGI("setBuffersGeometry(%d)", result);
+    } else {
+        LOGI("Could not get scaler stream configurations");
+    }
+
+    ACameraMetadata_const_entry intrinics_entry;
+    camera_status = ACameraMetadata_getConstEntry(camera_characteristics,
+                                                  ACAMERA_LENS_INTRINSIC_CALIBRATION, &intrinics_entry);
+
+    if(camera_status == ACAMERA_OK) {
+        intrinsics_set = true;
+        std::memcpy((void*) intrinsics, (void*) intrinics_entry.data.f, 5*sizeof(float));
+        LOGI("Camera Intrinsics: %f ,%f , %f, %f, %f", intrinics_entry.data.f[0],
+             intrinics_entry.data.f[1],intrinics_entry.data.f[2],intrinics_entry.data.f[3],
+             intrinics_entry.data.f[4]);
+    } else {
+        intrinsics_set = false;
+        if(camera_status == ACAMERA_ERROR_METADATA_NOT_FOUND) {
+            LOGI("Could not get camera intrinsics");
+        }
+    }
+
+    ACameraMetadata_const_entry lens_distortion_entry;
+    camera_status = ACameraMetadata_getConstEntry(camera_characteristics,
+                                                  ACAMERA_LENS_DISTORTION, &lens_distortion_entry);
+    if(camera_status == ACAMERA_OK) {
+        distortion_set = true;
+        std::memcpy((void*) distortion, (void*) lens_distortion_entry.data.f, 5*sizeof(float));
+        LOGI("Lens Distortion parameters: %f ,%f , %f, %f, %f", lens_distortion_entry.data.f[0],
+             lens_distortion_entry.data.f[1],lens_distortion_entry.data.f[2],
+             lens_distortion_entry.data.f[3],lens_distortion_entry.data.f[4]);
+    } else {
+        distortion_set = false;
+        if(camera_status == ACAMERA_ERROR_METADATA_NOT_FOUND) {
+            LOGI("Could not get camera lens distortion");
+        }
+    }
+}
+
+void StereoReconstruction::Camera::set_up_session(Format capture_format,
+                                                  ACameraDevice_request_template preview_template,
+                                                  ACameraDevice_request_template capture_template) {
+    set_up_capture_request(capture_format, capture_template);
+    set_up_preview_request(preview_template);
+    camera_status_t camera_status;
+
+    session_callbacks.onReady = on_ready;
+    session_callbacks.onActive = on_active;
+    session_callbacks.onClosed = on_closed;
+
+    if(output_container) {
+        ACaptureSessionOutputContainer_free(output_container);
+    }
+    if(camera_session) {
+        ACameraCaptureSession_close(camera_session);
+    }
+    if(preview.session_output) {
+        ACaptureSessionOutput_free(preview.session_output);
+        preview.session_output = NULL;
+    }
+    if(capture.session_output) {
+        ACaptureSessionOutput_free(preview.session_output);
+        capture.session_output = NULL;
+    }
 
 
-    media_status_t status = AImageReader_new(format.width, format.height, format.type,
-                                             1, &image_reader);
+    ACaptureSessionOutputContainer_create(&output_container);
 
-    if (status != AMEDIA_OK) {
+    if(preview.window) {
+        camera_status = ACaptureSessionOutput_create(preview.window, &preview.session_output);
+        if (camera_status != ACAMERA_OK) {
+            LOGE("Error %d occured while creating session output", camera_status);
+        }
+        camera_status = ACaptureSessionOutputContainer_add(output_container, preview.session_output);
+        if (camera_status != ACAMERA_OK) {
+            LOGE("Error %d occured while adding session output", camera_status);
+        }
+    } else {
+        LOGE("No preview window");
+    }
+    if(capture.window) {
+        camera_status = ACaptureSessionOutput_create(capture.window, &capture.session_output);
+        if (camera_status != ACAMERA_OK) {
+            LOGE("Error %d occured while creating session output", camera_status);
+        }
+        camera_status = ACaptureSessionOutputContainer_add(output_container, capture.session_output);
+        if (camera_status != ACAMERA_OK) {
+            LOGE("Error %d occured while adding session output", camera_status);
+        }
+    } else {
+        LOGE("No capture window");
+    }
+
+
+    LOGI("Trying to create capture session");
+
+    camera_status = ACameraDevice_createCaptureSession(camera_device,
+                                                       output_container,
+                                                       &session_callbacks,
+                                                       &camera_session);
+
+    if (camera_status != ACAMERA_OK) {
+        LOGE("Error %d occured while creating capture session", camera_status);
+        switch (camera_status) {
+            case ACAMERA_ERROR_INVALID_PARAMETER:
+                LOGE("Any of device, outputs, callbacks or session is NULL");
+                break;
+            case ACAMERA_ERROR_CAMERA_DISCONNECTED:
+                LOGE("The camera device is closed");
+                break;
+            case ACAMERA_ERROR_CAMERA_DEVICE:
+                LOGE("The camera device encountered fatal error.");
+                break;
+            case ACAMERA_ERROR_CAMERA_SERVICE:
+                LOGE("The camera device encountered fatal error.");
+                break;
+            case ACAMERA_ERROR_UNKNOWN:
+                LOGE("Failed for some other reason");
+                break;
+            default:
+                LOGE("Unknown Error Code");
+                break;
+        }
+        return;
+    }
+
+}
+
+void StereoReconstruction::Camera::set_up_capture_request(Format capture_format,
+        ACameraDevice_request_template capture_template) {
+    camera_status_t camera_status;
+    media_status_t media_status;
+    media_status = AImageReader_new(capture_format.width, capture_format.height,
+                                    capture_format.type, 1, &image_reader);
+
+    if (media_status != AMEDIA_OK) {
         LOGE("Error creating Image Reader");
     }
 
@@ -241,139 +419,62 @@ void StereoReconstruction::Camera::take_picture(ACameraDevice_request_template t
 
     AImageReader_setImageListener(image_reader, &listener);
 
-    AImageReader_getWindow(image_reader, &new_request.window);
+    AImageReader_getWindow(image_reader, &capture.window);
 
-    new_request.camera_device = camera_device;
-    LOGI("Trying to create capture request");
+    LOGI("Trying to create capture capture request");
 
-    camera_status_t camera_status = ACameraDevice_createCaptureRequest(new_request.camera_device,
-            template_id, &new_request.capture_request);
-
-    if(camera_status != ACAMERA_OK) {
-        LOGE("Error occured while creating capture request with camera");
-        return;
-    }
-
-    ACaptureSessionOutputContainer_create(&new_request.output_container);
-
-    new_request.session_callbacks.onReady = on_ready;
-    new_request.session_callbacks.onActive = on_active;
-    new_request.session_callbacks.onClosed = on_closed;
-
-    LOGI("Trying to create/add capture target");
-
-    ACameraOutputTarget_create(new_request.window, &new_request.camera_output_target);
-    ACaptureRequest_addTarget(new_request.capture_request, new_request.camera_output_target);
-
-    LOGI("Trying to create/add session output container");
-
-    ACaptureSessionOutput_create(new_request.window, &new_request.session_output);
-    ACaptureSessionOutputContainer_add(new_request.output_container, new_request.session_output);
-
-
-    LOGI("Trying to create/add capture session");
-
-    camera_status = ACameraDevice_createCaptureSession(new_request.camera_device,
-            new_request.output_container, &new_request.session_callbacks,
-            &new_request.camera_session);
+    camera_status = ACameraDevice_createCaptureRequest(camera_device, capture_template,
+                                                       &capture.capture_request);
 
     if(camera_status != ACAMERA_OK) {
-        LOGE("Error %d occured while creating capture session", camera_status);
-        switch(camera_status) {
-            case ACAMERA_ERROR_INVALID_PARAMETER:
-                LOGE("Any of device, outputs, callbacks or session is NULL");
-                break;
-            case ACAMERA_ERROR_CAMERA_DISCONNECTED:
-                LOGE("The camera device is closed");
-                break;
-            case ACAMERA_ERROR_CAMERA_DEVICE:
-                LOGE("The camera device encountered a fatal error.");
-                break;
-            case ACAMERA_ERROR_CAMERA_SERVICE:
-                LOGE("The camera device encountered a fatal error.");
-                break;
-            case ACAMERA_ERROR_UNKNOWN:
-                LOGE("Failed for some other reason");
-                break;
-            default:
-                LOGE("Unknown Error Code");
-                break;
-        }
+        LOGE("Error occured while creating capture capture request");
         return;
     }
-    ACameraCaptureSession_capture(new_request.camera_session, NULL, 1,
-                                  &new_request.capture_request, NULL);
-    requests.emplace_back(new_request);
+    LOGI("Trying to create/add capture capture target");
+
+    camera_status = ACameraOutputTarget_create(capture.window, &capture.camera_output_target);
+    if(camera_status != ACAMERA_OK) {
+        LOGE("Error occured while creating capture output target");
+        return;
+    }
+    camera_status = ACaptureRequest_addTarget(capture.capture_request, capture.camera_output_target);
+    if(camera_status != ACAMERA_OK) {
+        LOGE("Error occured while adding capture target");
+        return;
+    }
 }
 
-void StereoReconstruction::Camera::start_preview(ACameraDevice_request_template template_id,
-        ACameraDevice *_device) {
-    Request new_request;
-    new_request.window = window;
-    new_request.camera_device = camera_device;
-    LOGI("Trying to create capture request");
-
-    camera_status_t camera_status = ACameraDevice_createCaptureRequest(new_request.camera_device,
-            template_id, &new_request.capture_request);
-
-    if(camera_status != ACAMERA_OK) {
-        LOGE("Error occured while creating capture request with camera");
+void StereoReconstruction::Camera::set_up_preview_request(ACameraDevice_request_template
+preview_template) {
+    camera_status_t camera_status;
+    int32_t width = ANativeWindow_getWidth(window);
+    int32_t height = ANativeWindow_getHeight(window);
+    if(std::find_if(supported_formats.begin(), supported_formats.end(), [&] (const Format& format) {
+        //return is_same_ratio(width, height, format.width, format.height);
+        return width == format.width && height == format.height;
+    }) == supported_formats.end()) {
+        LOGE("Unsupported Format");
         return;
     }
+    preview.window = window;
+    LOGI("Trying to create preview capture request");
 
-    ACaptureSessionOutputContainer_create(&new_request.output_container);
-
-    new_request.session_callbacks.onReady = on_ready;
-    new_request.session_callbacks.onActive = on_active;
-    new_request.session_callbacks.onClosed = on_closed;
-
-    LOGI("Trying to create/add capture target");
-
-    ACameraOutputTarget_create(new_request.window, &new_request.camera_output_target);
-    ACaptureRequest_addTarget(new_request.capture_request, new_request.camera_output_target);
-
-    LOGI("Trying to create/add session output container");
-
-    ACaptureSessionOutput_create(new_request.window, &new_request.session_output);
-    ACaptureSessionOutputContainer_add(new_request.output_container, new_request.session_output);
-
-
-    LOGI("Trying to create/add capture session");
-
-    camera_status = ACameraDevice_createCaptureSession(new_request.camera_device,
-            new_request.output_container, &new_request.session_callbacks,
-            &new_request.camera_session);
+    camera_status = ACameraDevice_createCaptureRequest(camera_device,
+                                                       preview_template, &preview.capture_request);
 
     if(camera_status != ACAMERA_OK) {
-        LOGE("Error %d occured while creating capture session", camera_status);
-        switch(camera_status) {
-            case ACAMERA_ERROR_INVALID_PARAMETER:
-                LOGE("Any of device, outputs, callbacks or session is NULL");
-                break;
-            case ACAMERA_ERROR_CAMERA_DISCONNECTED:
-                LOGE("The camera device is closed");
-                break;
-            case ACAMERA_ERROR_CAMERA_DEVICE:
-                LOGE("The camera device encountered fatal error.");
-                break;
-            case ACAMERA_ERROR_CAMERA_SERVICE:
-                LOGE("The camera device encountered fatal error.");
-                break;
-            case ACAMERA_ERROR_UNKNOWN:
-                LOGE("Failed for some other reason");
-                break;
-            default:
-                LOGE("Unknown Error Code");
-                break;
-        }
+        LOGE("Error occured while creating preview capture request");
         return;
     }
-    camera_status = ACameraCaptureSession_setRepeatingRequest(new_request.camera_session, NULL, 1,
-                                                              &new_request.capture_request, NULL);
-
+    LOGI("Trying to create/add preview capture target");
+    camera_status = ACameraOutputTarget_create(preview.window, &preview.camera_output_target);
     if(camera_status != ACAMERA_OK) {
-        LOGE("Error %d occured while setting repeating captures with camera", camera_status);
+        LOGE("Error occured while creating preview output target");
         return;
     }
-    requests.emplace_back(new_request);
+    camera_status = ACaptureRequest_addTarget(preview.capture_request, preview.camera_output_target);
+    if(camera_status != ACAMERA_OK) {
+        LOGE("Error occured while adding capture target");
+        return;
+    }
 }
