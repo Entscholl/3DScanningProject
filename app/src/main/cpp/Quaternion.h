@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <opencv2/core/mat.hpp>
 
 #ifdef SHOEMAKE
 #include "EulerAngles.h"
@@ -184,6 +185,13 @@ public:
   // - converts this quaternion into Euler angles
   void toEuler(_Tp e[3], int order);
 #endif
+  cv::Vec3d operator *(const cv::Vec3d & v) const{
+  	const cv::Vec3d u = {x,y,z};
+  	const auto s = w;
+	  return 2.0f * u.dot(v) * u
+	           + (s*s - u.dot(u)) * v
+	           + 2.0f * s * u.cross(v);
+  }
 
 public:
 		// [w, (x, y, z)]
