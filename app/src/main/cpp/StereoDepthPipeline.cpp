@@ -1,26 +1,26 @@
 #include "StereoDepthPipeline.h"
 StereoReconstruction::StereoDepthPipeline::StereoDepthPipeline() {
-    rotate = cv::Mat::eye(3, 3, CV_64F);
-    translate = cv::Mat::zeros(3, 1, CV_64F);
+    rotate = cv::Matx33d::eye();
+    translate = cv::Matx13d::zeros();
     distortionCoefficientsA = cv::Mat::ones(1, 5, CV_64F);
     distortionCoefficientsB = cv::Mat::ones(1, 5, CV_64F);
-    cameraMatrixA = cv::Mat::eye(3,3, CV_64F);
-    cameraMatrixB = cv::Mat::eye(3,3, CV_64F);
+    cameraMatrixA = cv::Matx33d::eye();
+    cameraMatrixB = cv::Matx33d::eye();
 }
-void StereoReconstruction::StereoDepthPipeline::set_camera_matrix_A(cv::Mat camera_matrix) {
+void StereoReconstruction::StereoDepthPipeline::set_camera_matrix_A(const cv::Mat& camera_matrix) {
     cameraMatrixA = camera_matrix;
 }
 
-void StereoReconstruction::StereoDepthPipeline::set_distortion_coefficients_A(cv::Mat
+void StereoReconstruction::StereoDepthPipeline::set_distortion_coefficients_A(const cv::Mat&
                                                                               distortion_coeffs) {
     distortionCoefficientsA = distortion_coeffs;
 }
 
-void StereoReconstruction::StereoDepthPipeline::set_camera_matrix_B(cv::Mat camera_matrix) {
+void StereoReconstruction::StereoDepthPipeline::set_camera_matrix_B(const cv::Mat& camera_matrix) {
     cameraMatrixB = camera_matrix;
 }
 
-void StereoReconstruction::StereoDepthPipeline::set_distortion_coefficients_B(cv::Mat
+void StereoReconstruction::StereoDepthPipeline::set_distortion_coefficients_B(const cv::Mat&
                                                                               distortion_coeffs) {
     distortionCoefficientsB = distortion_coeffs;
 }
@@ -91,11 +91,11 @@ void StereoReconstruction::StereoDepthPipeline::set_input_B(cv::Mat *matrix_b) {
     inputB = matrix_b;
 }
 
-void StereoReconstruction::StereoDepthPipeline::set_rotation_matrix(cv::Mat rotate) {
+void StereoReconstruction::StereoDepthPipeline::set_rotation_matrix(const cv::Matx33d& rotate) {
     this->rotate = rotate;
 }
 
-void StereoReconstruction::StereoDepthPipeline::set_translate_vector(cv::Mat translate) {
+void StereoReconstruction::StereoDepthPipeline::set_translate_vector(const cv::Matx13d& translate) {
     this->translate = translate;
 }
 

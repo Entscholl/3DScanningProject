@@ -12,19 +12,19 @@ namespace StereoReconstruction {
         StereoDepthPipeline();
         void set_input_A(cv::Mat *matrix_a);
 
-        void set_camera_matrix_A(cv::Mat camera_matrix_a);
+        void set_camera_matrix_A(const cv::Mat& camera_matrix_a);
 
-        void set_distortion_coefficients_A(cv::Mat distortion_coeffs);
+        void set_distortion_coefficients_A(const cv::Mat& distortion_coeffs);
 
         void set_input_B(cv::Mat *matrix_b);
 
-        void set_camera_matrix_B(cv::Mat camera_matrix_a);
+        void set_camera_matrix_B(const cv::Mat& camera_matrix_a);
 
-        void set_distortion_coefficients_B(cv::Mat distortion_coeffs);
+        void set_distortion_coefficients_B(const cv::Mat& distortion_coeffs);
 
-        void set_translate_vector(cv::Mat translate);
+        void set_translate_vector(const cv::Matx13d& translate);
 
-        void set_rotation_matrix(cv::Mat rotate);
+        void set_rotation_matrix(const cv::Matx33d& rotate);
 
         void stereo_match(cv::Mat *output);
 
@@ -37,10 +37,10 @@ namespace StereoReconstruction {
         }
     private:
         cv::Mat *inputA = nullptr, *inputB = nullptr;
-        cv::Mat cameraMatrixA, cameraMatrixB;
+        cv::Matx33d cameraMatrixA, cameraMatrixB;
         cv::Mat distortionCoefficientsA, distortionCoefficientsB;
-        cv::Mat rotate;
-        cv::Mat translate;
+        cv::Matx33d rotate;
+        cv::Matx13d translate;
     };
 }
 #endif //INC_3DSCANNINGPROJECT_STEREODEPTHPIPELINE_H

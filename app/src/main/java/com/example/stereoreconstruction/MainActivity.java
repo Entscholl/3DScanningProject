@@ -38,9 +38,9 @@ import java.io.Serializable;
 
 public class MainActivity extends AppCompatActivity {
 	Context context;
-	Mat outputImageMat;
-	Mat inputImageA;
-	Mat inputImageB;
+	static Mat outputImageMat;
+	static Mat inputImageA;
+	static Mat inputImageB;
 	boolean capturedA = false;
 	boolean capturedB = false;
 	private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
@@ -50,9 +50,6 @@ public class MainActivity extends AppCompatActivity {
 				case LoaderCallbackInterface.SUCCESS:
 				{
 					Log.i("OpenCV", "OpenCV loaded successfully");
-					outputImageMat=new Mat();
-					inputImageA=new Mat();
-					inputImageB=new Mat();
 				} break;
 				default:
 				{
@@ -107,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
 			@Override
 			public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 				Log.i("3dscanning", "New Preview Size: " + width + ", " + height);
-				setUpCameraSession();
+				setUpCameraSession(holder.getSurface());
 				startCameraPreview();
 			}
 		});
@@ -144,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
 	}
 	public void onCalculateButton(View view) {
 
-		//TODO start the image processing here
 		if (!capturedA || !capturedB) {
 			Toast.makeText(context, "No images captured, using defaults" ,
 					Toast.LENGTH_SHORT).show();
@@ -154,6 +150,7 @@ public class MainActivity extends AppCompatActivity {
 			Utils.bitmapToMat(bmB, inputImageB);
 		}
 		Toast.makeText(context, "Calculating..." ,Toast.LENGTH_LONG).show();
+		outputImageMat = new Mat();
 		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 				outputImageMat.getNativeObjAddr());
 		if(status == 0) {
@@ -165,10 +162,8 @@ public class MainActivity extends AppCompatActivity {
 		}
 	}
 	public void displayCVMatrix(Mat mat) {
-		//TODO handle landscape
-		//TODO lifecycle issue when displaying matrix, somehow others get invalid after
-		//changing activites
 		Mat output = new Mat();
+
 		//TODO get actual Display Size
 
 		Imgproc.resize(mat, output, new Size(1100,2000));
@@ -201,20 +196,18 @@ public class MainActivity extends AppCompatActivity {
 	public void onTakeImageButton(View view) {
 		if(capturedA && !capturedB) {
 			capturedB = true;
-			//TODO don't do this stuff here
-			inputImageB = new Mat(480, 640, CvType.CV_8UC3);
+			inputImageB = new Mat();
 			takePicture(inputImageB.getNativeObjAddr());
 			stopMeasurement();
 		} else if (!capturedA) {
 			capturedA = true;
-			//TODO don't do this stuff here
-			inputImageA = new Mat(480, 640, CvType.CV_8UC3);
+			inputImageA = new Mat();
 			takePicture(inputImageA.getNativeObjAddr());
 			startMeasurement();
 		} else {
 			capturedB = false;
 			capturedA = true;
-			inputImageA = new Mat(480, 640, CvType.CV_8UC3);
+			inputImageA = new Mat();
 			takePicture(inputImageA.getNativeObjAddr());
 			startMeasurement();
 		}
@@ -224,7 +217,7 @@ public class MainActivity extends AppCompatActivity {
 	 * which is packaged with this application.
 	 */
 	public native String stringFromJNI();
-	public native void setUpCameraSession();
+	public native void setUpCameraSession(Surface surfaceView);
 	public native void startCameraPreview();
 	public native void initCamera(Surface surfaceView);
 	public native void stopCameraPreview();

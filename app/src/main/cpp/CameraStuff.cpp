@@ -325,9 +325,11 @@ void StereoReconstruction::Camera::set_up_session(Format capture_format,
 
     if(output_container) {
         ACaptureSessionOutputContainer_free(output_container);
+        output_container= NULL;
     }
     if(camera_session) {
         ACameraCaptureSession_close(camera_session);
+        camera_session= NULL;
     }
     if(preview.session_output) {
         ACaptureSessionOutput_free(preview.session_output);

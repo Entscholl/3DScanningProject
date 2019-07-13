@@ -144,8 +144,9 @@ namespace StereoReconstruction {
             if(!instance().open(0)) return;
             LOGI("Surface in native started");
         }
-        static void set_up_session() {
+        static void set_up_session(JNIEnv* const env, const jobject surface) {
             std::lock_guard<std::mutex> lock_guard(instance().mutex);
+            instance().window = ANativeWindow_fromSurface(env, surface);
             instance().set_up_session(Format(640, 480, AIMAGE_FORMAT_YUV_420_888));
         }
         static void start_preview_() {

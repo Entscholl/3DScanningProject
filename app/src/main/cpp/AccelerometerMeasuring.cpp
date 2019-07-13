@@ -7,7 +7,8 @@
 #include <opencv2/video/tracking.hpp>
 
 constexpr double baselineAlpha=0.2;
-
+cv::Matx33d AccelerometerMeasure::rotation;
+cv::Matx13d AccelerometerMeasure::translation;
 int accelerometer_callback(int fd, int events, void *data) {
 	ASensorEvent event;
 	auto *_this = (AccelerometerMeasure *) data;
@@ -156,7 +157,8 @@ cv::Matx44f AccelerometerMeasure::stopMeasure() {
 	LOGI("Rot: %f, %f, %f", rot.at<float>(0,0), rot.at<float>(0,1), rot.at<float>(0,2));
 	LOGI("Rot: %f, %f, %f", rot.at<float>(1,0), rot.at<float>(1,1), rot.at<float>(1,2));
 	LOGI("Rot: %f, %f, %f", rot.at<float>(2,0), rot.at<float>(2,1), rot.at<float>(2,2));
-
+    rotation = rot;
+    translation = pos;
 	cv::Mat transform = cv::Mat::eye(4,4,CV_32F);
 	transform(cv::Range(0,3),cv::Range(0,3)) = rot;
 	transform.at<float>(0,3)= static_cast<float>(pos(0));

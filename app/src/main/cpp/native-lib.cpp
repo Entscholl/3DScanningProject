@@ -76,6 +76,8 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
             distCoeffs[i].at<double>(0, 3) = StereoReconstruction::Camera::distortion[4];
             // kappa_3
             distCoeffs[i].at<double>(0, 4) = StereoReconstruction::Camera::distortion[2];
+        } else {
+
         }
         cameraMatrix[i] = cv::Mat::eye(3,3, CV_64F);
         if(StereoReconstruction::Camera::intrinsics_set) {
@@ -89,12 +91,25 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
             cameraMatrix[i].at<double>(1, 2) = StereoReconstruction::Camera::intrinsics[3];
             // s
             cameraMatrix[i].at<double>(0, 1) = StereoReconstruction::Camera::intrinsics[4];
-        }
+        } else {
+            // f_x
+            cameraMatrix[i].at<double>(0, 0) = 502.59;
+            // f_y
+            cameraMatrix[i].at<double>(1, 1) = 502.63;
+            // c_x
+            cameraMatrix[i].at<double>(0, 2) = 315.87;
+            // c_y
+            cameraMatrix[i].at<double>(1, 2) = 234.41;
+            // s
+            cameraMatrix[i].at<double>(0, 1) = 0;
+            //radial [9,992e-02, -2,22e-01]
     }
     pipeline.set_camera_matrix_A(cameraMatrix[0]);
     pipeline.set_camera_matrix_B(cameraMatrix[1]);
     pipeline.set_distortion_coefficients_A(distCoeffs[0]);
     pipeline.set_distortion_coefficients_B(distCoeffs[1]);
+    pipeline.set_translate_vector(AccelerometerMeasure::translation);
+
     pipeline.rectify();
 
     double end = omp_get_wtime();
@@ -123,8 +138,9 @@ Java_com_example_stereoreconstruction_MainActivity_startCameraPreview(JNIEnv *en
     StereoReconstruction::Camera::start_preview_();
 }
 JNIEXPORT void JNICALL
-Java_com_example_stereoreconstruction_MainActivity_setUpCameraSession(JNIEnv *env, jobject instance) {
-    StereoReconstruction::Camera::set_up_session();
+Java_com_example_stereoreconstruction_MainActivity_setUpCameraSession(JNIEnv *env, jobject instance,
+                                                                      jobject surfaceView) {
+    StereoReconstruction::Camera::set_up_session(env, surfaceView);
 }
 
 JNIEXPORT void JNICALL
