@@ -18,15 +18,19 @@ int accelerometer_callback(int fd, int events, void *data) {
 			if (accVec.dot(accVec) < 0.1) {
 				return 1;
 			}
-			if (_this->_startMeasuring) {
+			if (_this->_startMeasuring && !_this->_is_first_orientation) {
 				_this->_accelerometer_measurements.push_back({std::move(accVec),
+				                                              _this->_last_Orientation,
 				                                              std::chrono::high_resolution_clock::now()});
 			} else {
 				_this->_accel_baseline = baselineAlpha*accVec+(1-baselineAlpha)*_this->_accel_baseline;
+				//LOGI("Accel, baseline %f, %f, %f", _this->_accel_baseline(0),_this->_accel_baseline(1),_this->_accel_baseline(2));
 			}
 		}
 		if (event.type == ASENSOR_TYPE_ROTATION_VECTOR) {
 			Quaternion<float> orientation{event.data[3],event.data[0], event.data[1], event.data[2]};
+			_this->_last_Orientation = orientation;
+			//LOGI("Quat, baseline %f, %f, %f, %f", event.data[3],event.data[0], event.data[1], event.data[2]);
 			if (_this->_is_first_orientation) {
 				_this->_is_first_orientation = false;
 				_this->_start_Orientation =  orientation;
@@ -35,10 +39,6 @@ int accelerometer_callback(int fd, int events, void *data) {
 			}
 		}
 	}
-	return 1;
-}
-
-int gyroscope_callback(int fd, int event, void *data) {
 	return 1;
 }
 
@@ -108,6 +108,9 @@ AccelerometerMeasure::AccelerometerMeasure() {
 	status = ASensorEventQueue_setEventRate(_accelerometer_event_queue,
 	                                        _accelerometer,
 	                                        ASensor_getMinDelay(_accelerometer));
+	status = ASensorEventQueue_setEventRate(_accelerometer_event_queue,
+	                                        _orientation_sensor,
+	                                        ASensor_getMinDelay(_orientation_sensor));
 
 }
 
@@ -134,6 +137,8 @@ cv::Matx44f AccelerometerMeasure::stopMeasure() {
 				){
 			continue;
 		}
+		auto deltaOrientation = _accelerometer_measurements[i].orientation*_start_Orientation.inverse();
+		//deltaOrientation = Quaternion<float>(-deltaOrientation.w,deltaOrientation.x,deltaOrientation.y,-deltaOrientation.z);
 		auto accel = _accelerometer_measurements[i].value - _base_accel;
 		double deltaT = (double) std::chrono::duration_cast<std::chrono::nanoseconds>
 				(_accelerometer_measurements[i].timestamp -

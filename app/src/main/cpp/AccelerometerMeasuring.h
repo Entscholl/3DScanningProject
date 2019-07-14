@@ -34,12 +34,14 @@ class AccelerometerMeasure {
 
 		struct MeasurementData{
 				cv::Vec3d value;
+				Quaternion<float> orientation;
 				std::chrono::high_resolution_clock::time_point timestamp;
 		};
 		std::vector<MeasurementData> _accelerometer_measurements;
 
 		Quaternion<float> _start_Orientation;
 		Quaternion<float> _final_Orientation;
+		Quaternion<float> _last_Orientation;
 
 		bool _is_first_orientation = true;
 public:
