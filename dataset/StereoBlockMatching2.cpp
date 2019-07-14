@@ -1,6 +1,7 @@
 #include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs/imgcodecs_c.h>
 
 using namespace cv;
 using namespace std;
@@ -16,26 +17,19 @@ int main() {
 
 	Mat left, right;
 
-	//imread can't read png files, so please implement this
-	//http://opencv-tutorials-hub.blogspot.com/2015/06/reading-images-sequentially-without-using-videocapture-displaying-using-for-loop-opencv-successive-frame-of-image-arjuntoshniwal.html
-
-	left = imread("im0e0.png");
-	right = imread("im1e0.png");
-	//left.convertTo(left, CV_8UC1);
-	//right.convertTo(right, CV_8UC1);
-
-	//cout << right.type();
+	left = cv::imread("im0e0.png");
+	right = cv::imread("im1e0.png");
 	
 	//check if image was read succesfully
-	if (left.empty()) {
+	if (!left.data) {
 		cout << "Left image cannot be read" << std::endl;
 	}
-	if (right.empty()) {
+	if (!right.data) {
 		cout << "Right image cannot be read" << std::endl;
 	}
-	int max_disp = 32;
-	int wsize = 16;
-	Mat disparity_out;
+	//int max_disp = 32;
+	//int wsize = 16;
+	//Mat disparity_out;
 
 	//compute disparity maps using opencv
 	//Ptr<StereoSGBM> matcher = StereoSGBM::create(max_disp, wsize); 
@@ -43,25 +37,21 @@ int main() {
 	//imwrite("depth_test.png", disparity_out);
 	
 	cout << "Done!";
-	
-
 
 	//the disparity range defines how many pixels away from the block's location
-        // in the first image to search for a matching block in the other image. I tried with this, not sure what we need for our photos.
+    // in the first image to search for a matching block in the other image. I tried with this, not sure what we need for our photos.
 	
 	int disparityMIN = -50, disparityMAX = 50;
 	int disparityRANGE = disparityMAX - disparityMIN;
 
 	//the size of the blocks for block matching
-        int halfBlockSize = 3;
+     int halfBlockSize = 3;
 
 	//int blockSize = 2 * halfBlockSize + 1;
 
 	//get left image's size
-	//int ROW = left.rows; 
-	//int COL = left.cols;
-
-	int ROW = 50, COL = 50;
+	int ROW = left.rows; 
+	int COL = left.cols;
 
 	// store the disparity and sum of squared distance (SSD)
 
@@ -81,7 +71,6 @@ int main() {
 			SSD_value[i][j] = 10e8;
 		}
 	}
-	int range = 20;
 
 	cout << "First Done!";
 	//block matching - with SSD calculation
@@ -94,18 +83,21 @@ int main() {
 	{
 		for (int j = 0 + halfBlockSize; j < left.cols - halfBlockSize; j++)
 		{
-
-			
-			
+			for (int range = disparityMIN; range <= disparityMAX; range++)
+			{
+				
 				SSD = 0;
 
 				for (left_row = -halfBlockSize + i; left_row <= halfBlockSize + i; left_row++)
 				{
 					for (left_col = -halfBlockSize + j; left_col <= halfBlockSize + j; left_col++)
 					{
+						cout << left_row << " " << left_col << "\n";
+
 						right_row = left_row;
 						right_col = left_col + range;
-						//cout << "Inner loop"; 
+
+						cout << right_row << " " << right_col << "\n";
 
 						SSD += square(left.at<cv::Vec3b>(left_row, left_col)[0] - right.at<cv::Vec3b>(right_row, min(max(0, right_col), COL - 1))[0])
 							+ square(left.at<cv::Vec3b>(left_row, left_col)[1] - right.at<cv::Vec3b>(right_row, min(max(0, right_col), COL - 1))[1])
@@ -118,17 +110,17 @@ int main() {
 					disp[i][j] = range;
 					SSD_value[i][j] = SSD;
 				}
-			
 
+			}
 
 		}
 		cout << "Outer loop" << std::endl; 
 
 	}
-	//system("pause");
 	cout << "Second Done!";
+
 	//construct disparity image
-	Mat dispIMG = Mat::zeros(ROW, COL, CV_8UC1); 
+	/*Mat dispIMG = Mat::zeros(ROW, COL, CV_8UC1); 
 
 	for (int i = 0; i < ROW; i++)
 	{
@@ -137,12 +129,12 @@ int main() {
 			dispIMG.at<uchar>(i, j) = 63 + (int)192.0 * (disp[i][j] - disparityMIN) / disparityRANGE;
 			cout << "innerloop2 Done";
 		}
-	}
-	cout << "Third Done!";
-	//cout << dispIMG; 
-	imshow("disparity", dispIMG);
-	waitKey(0);
-	system("pause");
+	}*/
+
+
+	//imshow("disparity", dispIMG);
+	//waitKey(0);
+
 	return 0;
 	
 }
