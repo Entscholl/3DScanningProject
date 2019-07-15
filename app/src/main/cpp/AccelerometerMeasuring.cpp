@@ -6,7 +6,7 @@
 
 #include <opencv2/video/tracking.hpp>
 
-constexpr double baselineAlpha=0.2;
+constexpr double baselineAlpha=0.1;
 cv::Matx33d AccelerometerMeasure::rotation;
 cv::Vec3d AccelerometerMeasure::translation;
 int accelerometer_callback(int fd, int events, void *data) {
@@ -117,6 +117,7 @@ AccelerometerMeasure::AccelerometerMeasure() {
 
 void AccelerometerMeasure::startMeasure() {
 	_base_accel = baseAccelerometerValue();
+	LOGI("baseline: %lf, %lf, %lf", _base_accel(0), _base_accel(1), _base_accel(2));
 	_accelerometer_measurements.clear();
 	_startMeasuring = true;
 	_is_first_orientation = true;
@@ -132,15 +133,21 @@ cv::Matx44f AccelerometerMeasure::stopMeasure() {
 	cv::Vec3d accelFilt {0,0,0};
 	for (size_t i = 1; i < _accelerometer_measurements.size(); ++i) {
 		cv::Mat mesMat(3, 1, CV_64F);
-		if(_accelerometer_measurements[i].value(0) < 0.01 &&
-				_accelerometer_measurements[i].value(1) < 0.01 &&
-				_accelerometer_measurements[i].value(2) < 0.01
+		if(std::abs(_accelerometer_measurements[i].value(0)) < 0.01 &&
+		   std::abs(_accelerometer_measurements[i].value(1)) < 0.01 &&
+		   std::abs(_accelerometer_measurements[i].value(2)) < 0.01
 				){
 			continue;
 		}
-		auto deltaOrientation = _accelerometer_measurements[i].orientation*_start_Orientation.inverse();
+		//auto deltaOrientation = _accelerometer_measurements[i].orientation.inverse()*_start_Orientation;
 		//deltaOrientation = Quaternion<float>(-deltaOrientation.w,deltaOrientation.x,deltaOrientation.y,-deltaOrientation.z);
 		auto accel = _accelerometer_measurements[i].value - _base_accel;
+		if(std::abs(accel(0)) < 0.05 &&
+				std::abs(accel(1)) < 0.05 &&
+				std::abs(accel(2)) < 0.05
+				){
+			continue;
+		}
 		double deltaT = (double) std::chrono::duration_cast<std::chrono::nanoseconds>
 				(_accelerometer_measurements[i].timestamp -
 				 _accelerometer_measurements[i - 1].timestamp).count();
