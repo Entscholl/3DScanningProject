@@ -49,7 +49,11 @@ void BokehEffect::compute(){
 			cv::Vec3f bokehPixel = {0,0,0};
 			double weights = 0;
 			for(const auto & c : circles){
-				const double w = 1; //TODO: add distribution model alpha_t in the paper
+				const cv::Vec2i p = {x,y};
+                const double CoCDiamHat = thetahat(p);
+                //alpha_c of q = 4 / (diameter hat of p) ^ 2
+                int alpha_c = 4 / (CoCDiamHat * CoCDiamHat);
+				const double w = alpha_c ;
 				bokehPixel+=_rgbInput.at<cv::Vec3f>(c.circleCenter)*w;
 				weights += w;
 			}
