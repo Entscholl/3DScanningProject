@@ -57,7 +57,7 @@ public:
 		}
 public:
 		static cv::Matx33d rotation;
-		static cv::Matx13d translation;
+		static cv::Vec3d translation;
 		static AccelerometerMeasure* getInstance() {
 			static auto _sAccelSingleton = std::make_unique<AccelerometerMeasure>();
 			return _sAccelSingleton.get();

@@ -78,11 +78,11 @@ static void on_image_taken(void* context, AImageReader* image_reader)
         std::memcpy(&(current_data.get()[Y_len]), V_data, static_cast<size_t>(V_len + 1));
         cv::Mat mYUV((height *3) /2, width, CV_8UC1, (void*) current_data.get());
         //StereoReconstruction::Camera::output_mat->resize(height, width);
-        cv::resize(*StereoReconstruction::Camera::output_mat,
-                *StereoReconstruction::Camera::output_mat, cv::Size(width,height));
-        assert(StereoReconstruction::Camera::output_mat->cols == width);
-        assert(StereoReconstruction::Camera::output_mat->rows == height);
-        assert(StereoReconstruction::Camera::output_mat->type() == CV_8UC3);
+        //cv::resize(*StereoReconstruction::Camera::output_mat,
+        //        *StereoReconstruction::Camera::output_mat, cv::Size(width,height));
+        //assert(StereoReconstruction::Camera::output_mat->cols == width);
+        //assert(StereoReconstruction::Camera::output_mat->rows == height);
+        //assert(StereoReconstruction::Camera::output_mat->type() == CV_8UC3);
         cv::cvtColor(mYUV, *StereoReconstruction::Camera::output_mat, CV_YUV2RGB_NV21, 3);
         cv::transpose(*StereoReconstruction::Camera::output_mat,
                 *StereoReconstruction::Camera::output_mat);
@@ -120,7 +120,7 @@ bool is_same_ratio(int32_t width, int32_t height, int32_t  other_width , int32_t
 }
 bool StereoReconstruction::Camera::open(uint32_t camera_id) {
 
-    ACameraIdList *camera_id_list = NULL;
+    ACameraIdList *camera_id_list = nullptr;
 
     ACameraManager *camera_manager = ACameraManager_create();
     camera_status_t camera_status = ACameraManager_getCameraIdList(camera_manager, &camera_id_list);

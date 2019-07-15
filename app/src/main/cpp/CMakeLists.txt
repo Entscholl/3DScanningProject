@@ -11,6 +11,7 @@ cmake_minimum_required(VERSION 3.4.1)
 # Gradle automatically packages shared libraries with your APK.
 set(CMAKE_VERBOSE_MAKEFILE on)
 
+
 add_library( # Sets the name of the library.
              native-lib
 
@@ -24,6 +25,7 @@ add_library( # Sets the name of the library.
              Quaternion.cpp
              CameraStuff.cpp
              BokehEffect.cpp
+             Calibration.cpp
         )
 
 
@@ -50,6 +52,9 @@ set(OpenCV_DIR "../../../../opencv/src/sdk/native/jni")
 find_package(OpenCV REQUIRED)
 message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
 
+#set(Eigen_DIR "../../../../Eigen")
+
+#find_library(Eigen REQUIRED)
 
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this

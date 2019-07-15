@@ -22,13 +22,17 @@ namespace StereoReconstruction {
 
         void set_distortion_coefficients_B(const cv::Mat& distortion_coeffs);
 
-        void set_translate_vector(const cv::Matx13d& translate);
+        void set_translate_vector(const cv::Vec3d& translate);
 
         void set_rotation_matrix(const cv::Matx33d& rotate);
 
         void stereo_match(cv::Mat *output);
 
         void rectify();
+        void rectify_uncalibrated();
+
+        void set_num_disparities(int num_disparities);
+        void set_block_size(int block_size);
 
     public:
         static StereoDepthPipeline& instance() {
@@ -40,7 +44,9 @@ namespace StereoReconstruction {
         cv::Matx33d cameraMatrixA, cameraMatrixB;
         cv::Mat distortionCoefficientsA, distortionCoefficientsB;
         cv::Matx33d rotate;
-        cv::Matx13d translate;
+        cv::Vec3d translate;
+        int num_disparities;
+        int block_size;
     };
 }
 #endif //INC_3DSCANNINGPROJECT_STEREODEPTHPIPELINE_H

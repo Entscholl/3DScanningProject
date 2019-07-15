@@ -147,7 +147,9 @@ namespace StereoReconstruction {
         static void set_up_session(JNIEnv* const env, const jobject surface) {
             std::lock_guard<std::mutex> lock_guard(instance().mutex);
             instance().window = ANativeWindow_fromSurface(env, surface);
-            instance().set_up_session(Format(640, 480, AIMAGE_FORMAT_YUV_420_888));
+            //TODO hardcoded image size
+            instance().set_up_session(Format(1920, 1080, AIMAGE_FORMAT_YUV_420_888));
+            //instance().set_up_session(Format(640, 480, AIMAGE_FORMAT_YUV_420_888));
         }
         static void start_preview_() {
             std::lock_guard<std::mutex> lock_guard(instance().mutex);

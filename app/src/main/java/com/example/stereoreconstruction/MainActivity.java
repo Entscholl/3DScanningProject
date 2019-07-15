@@ -8,15 +8,20 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,6 +36,9 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import static org.opencv.core.Core.ROTATE_90_CLOCKWISE;
+import static org.opencv.core.Core.ROTATE_90_COUNTERCLOCKWISE;
+import static org.opencv.core.Core.rotate;
 import static org.opencv.imgproc.Imgproc.*;
 
 import java.io.Serializable;
@@ -38,11 +46,14 @@ import java.io.Serializable;
 
 public class MainActivity extends AppCompatActivity {
 	Context context;
+	public static Mat currentVisibleMat;
 	static Mat outputImageMat;
 	static Mat inputImageA;
 	static Mat inputImageB;
-	boolean capturedA = false;
-	boolean capturedB = false;
+	static boolean rotatedA = false;
+	static boolean rotatedB = false;
+	static boolean capturedA = false;
+	static boolean capturedB = false;
 	private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
 		@Override
 		public void onManagerConnected(int status) {
@@ -50,6 +61,15 @@ public class MainActivity extends AppCompatActivity {
 				case LoaderCallbackInterface.SUCCESS:
 				{
 					Log.i("OpenCV", "OpenCV loaded successfully");
+					if(outputImageMat == null) {
+						outputImageMat= new Mat();
+					}
+					if(inputImageA == null) {
+						inputImageA= new Mat();
+					}
+					if(inputImageB == null) {
+						inputImageB= new Mat();
+					}
 				} break;
 				default:
 				{
@@ -71,9 +91,11 @@ public class MainActivity extends AppCompatActivity {
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
+
 		context = this;
 		initMeasurement();
 		super.onCreate(savedInstanceState);
+
 
 		setContentView(R.layout.activity_main);
 		if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -85,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
 			Log.e("3dscanning", "No Camera Permission");
 			return;
 		}
+
 		SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
 		SurfaceHolder surfaceHolder = surfaceView.getHolder();
 		surfaceHolder.addCallback(new SurfaceHolder.Callback() {
@@ -140,6 +163,7 @@ public class MainActivity extends AppCompatActivity {
 		}
 	}
 	public void onCalculateButton(View view) {
+		//calibrate();
 
 		if (!capturedA || !capturedB) {
 			Toast.makeText(context, "No images captured, using defaults" ,
@@ -149,10 +173,24 @@ public class MainActivity extends AppCompatActivity {
 			Utils.bitmapToMat(bmA, inputImageA);
 			Utils.bitmapToMat(bmB, inputImageB);
 		}
-		Toast.makeText(context, "Calculating..." ,Toast.LENGTH_LONG).show();
-		outputImageMat = new Mat();
+
+		if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+			if(!rotatedA) {
+				rotatedA = true;
+				rotate(inputImageA, inputImageA, ROTATE_90_COUNTERCLOCKWISE);
+			}
+			if(!rotatedB) {
+				rotatedB = true;
+				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
+			}
+		}
+		//SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
+		//SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
+		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+		//		outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
+		//		blockSizeBar.getProgress()*2 +1);
 		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-				outputImageMat.getNativeObjAddr());
+				outputImageMat.getNativeObjAddr(), 16, 5);
 		if(status == 0) {
 			displayCVMatrix(outputImageMat);
 		} else {
@@ -160,20 +198,33 @@ public class MainActivity extends AppCompatActivity {
 				Toast.makeText(context, "Empty images" ,Toast.LENGTH_SHORT).show();
 			}
 		}
+
 	}
 	public void displayCVMatrix(Mat mat) {
-		Mat output = new Mat();
+		if(mat.cols() == 0 || mat.rows() == 0) {
+			Toast.makeText(context, "Not a valid image" , Toast.LENGTH_SHORT).show();
+			return;
+		}
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int width = displayMetrics.widthPixels;
+        int height = displayMetrics.heightPixels;
 
-		//TODO get actual Display Size
-
-		Imgproc.resize(mat, output, new Size(1100,2000));
+		currentVisibleMat = mat.clone();
+        Imgproc.resize(currentVisibleMat, currentVisibleMat, new Size(width ,height));
 
 		Intent intent = new Intent(this, ShowImageActivity.class);
-		intent.putExtra("Mat", output.getNativeObjAddr());
 		startActivity(intent);
 	}
 	public void onDisplayImageA(View view) {
 		if (capturedA) {
+			if (getResources().getConfiguration().orientation ==
+					Configuration.ORIENTATION_LANDSCAPE) {
+				if(!rotatedA) {
+					rotatedA = true;
+					rotate(inputImageA, inputImageA, ROTATE_90_COUNTERCLOCKWISE);
+				}
+			}
 			displayCVMatrix(inputImageA);
 		} else {
 			Toast.makeText(context, "No image captured", Toast.LENGTH_SHORT).show();
@@ -181,36 +232,81 @@ public class MainActivity extends AppCompatActivity {
 	}
 	public void onDisplayImageB(View view) {
 		if (capturedB) {
+			if (getResources().getConfiguration().orientation
+					== Configuration.ORIENTATION_LANDSCAPE) {
+				if(!rotatedB) {
+					rotatedB = true;
+					rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
+				}
+			}
 			displayCVMatrix(inputImageB);
 		} else {
 			Toast.makeText(context, "No image captured", Toast.LENGTH_SHORT).show();
 		}
 	}
 	public void onRectifyButton(View view) {
+		if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+			if(!rotatedA) {
+				rotatedA = true;
+				rotate(inputImageA, inputImageA, ROTATE_90_COUNTERCLOCKWISE);
+			}
+			if(!rotatedB) {
+				rotatedB = true;
+				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
+			}
+		}
 		if (!capturedA || !capturedB) {
 			Toast.makeText(context, "No images captured, error" ,
 					Toast.LENGTH_SHORT).show();
 		}
-		rectifyImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr());
+		float x = 0.f,y = 0.f,z = 0.f;
+		EditText x_edit = findViewById(R.id.x_val);
+		EditText y_edit = findViewById(R.id.y_val);
+		EditText z_edit = findViewById(R.id.z_val);
+		if(x_edit.getText().toString().isEmpty()) {
+			x = 0.f;
+		} else {
+			x = Float.valueOf(x_edit.getText().toString());
+		}
+		if(y_edit.getText().toString().isEmpty()) {
+			y = 0.f;
+		} else {
+			y = Float.valueOf(y_edit.getText().toString());
+		}
+		if(z_edit.getText().toString().isEmpty()) {
+			z = 0.f;
+		} else {
+			z = Float.valueOf(z_edit.getText().toString());
+		}
+        CheckBox gyro_box = findViewById(R.id.gyroCheck);
+        CheckBox accel_box = findViewById(R.id.accelCheck);
+        CheckBox uncalibrated_box = findViewById(R.id.uncalibratedCheck);
+        rectifyImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+				outputImageMat.getNativeObjAddr(), x, y, z, gyro_box.isChecked(),
+                accel_box.isChecked(), uncalibrated_box.isChecked());
+		displayCVMatrix(outputImageMat);
 	}
 	public void onTakeImageButton(View view) {
+		//addCalibrationImage();
+
 		if(capturedA && !capturedB) {
 			capturedB = true;
-			inputImageB = new Mat();
+			rotatedB = false;
 			takePicture(inputImageB.getNativeObjAddr());
 			stopMeasurement();
 		} else if (!capturedA) {
 			capturedA = true;
-			inputImageA = new Mat();
+			rotatedA = false;
 			takePicture(inputImageA.getNativeObjAddr());
 			startMeasurement();
 		} else {
 			capturedB = false;
 			capturedA = true;
-			inputImageA = new Mat();
+			rotatedA = false;
 			takePicture(inputImageA.getNativeObjAddr());
 			startMeasurement();
 		}
+
 	}
 	/**
 	 * A native method that is implemented by the 'native-lib' native library,
@@ -225,7 +321,12 @@ public class MainActivity extends AppCompatActivity {
 	public native void initMeasurement();
 	public native void startMeasurement();
 	public native void stopMeasurement();
-	public native void rectifyImages(long inputMatA, long inputMatB);
+	public native void rectifyImages(long inputMatA, long inputMatB, long outputMatAddr ,float x
+									,float y, float z, boolean use_gyro, boolean use_accel,
+									 boolean use_uncalibrated);
+	public native void addCalibrationImage();
+	public native void calibrate();
 
-	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr);
+	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr,
+									int num_disparities, int block_size);
 }
