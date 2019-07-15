@@ -31,7 +31,7 @@ JNIEXPORT jint JNICALL
 Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jobject,
         jlong addrInputA, jlong addrInputB, jlong addrOutputMat, jint num_disparities,
         jint block_size) {
-    LOGI("Starting Stereo Matchin with %d disparities and %d blocksize", num_disparities, block_size);
+    LOGI("Starting Stereo matching with %d disparities and %d blocksize", num_disparities, block_size);
     double start = omp_get_wtime();
 
 
@@ -139,6 +139,7 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
             cameraMatrix[i].at<double>(1, 2) = 960;
             // s
             cameraMatrix[i].at<double>(0, 1) = 0;
+            //TODO Actually calibrated values (Those are correct for some devices)
         }
     }
     pipeline.set_camera_matrix_A(cameraMatrix[0]);

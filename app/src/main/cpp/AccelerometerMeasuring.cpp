@@ -50,7 +50,7 @@ cv::Mat getRotationMatrixFromQuaternion(Quaternion<float> &quat) {
 	n.y /= mag;
 	n.z /= mag;
 	n.w /= mag;
-	/*
+	
 	rot.at<float>(0,0)=1-2*(n.y*n.y+n.z*n.z);
 	rot.at<float>(0,1)=2*(n.x*n.y-n.w*n.z);
 	rot.at<float>(0,2)=2*(n.x*n.z+n.w*n.y);
@@ -63,20 +63,6 @@ cv::Mat getRotationMatrixFromQuaternion(Quaternion<float> &quat) {
 
 	rot.at<float>(2,0)=2*(n.x*n.z-n.w*n.x);
 	rot.at<float>(2,1)=2*(n.y*n.z+n.w*n.x);
-	rot.at<float>(2,2)=1-2*(n.x*n.x+n.y*n.y);
-	*/
-	rot.at<float>(0,0)=1-2*(n.y*n.y+n.z*n.z);
-	rot.at<float>(1,0)=2*(n.x*n.y-n.w*n.z);
-	rot.at<float>(2,0)=2*(n.x*n.z+n.w*n.y);
-
-
-	rot.at<float>(0,1)=2*(n.x*n.y+n.w*n.z);
-	rot.at<float>(1,1)=1-2*(n.x*n.x+n.z*n.z);
-	rot.at<float>(2,1)=2*(n.y*n.z-n.w*n.x);
-
-
-	rot.at<float>(0,2)=2*(n.x*n.z-n.w*n.x);
-	rot.at<float>(1,2)=2*(n.y*n.z+n.w*n.x);
 	rot.at<float>(2,2)=1-2*(n.x*n.x+n.y*n.y);
 	LOGI("%f",rot.at<float>(1,1));
 	return rot;
