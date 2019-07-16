@@ -308,6 +308,11 @@ public class MainActivity extends AppCompatActivity {
 		}
 
 	}
+
+	public void onShowBokeh(View view){
+		ShowBokehDialog.displayBokehDialog(this,inputImageA,outputImageMat);
+	}
+
 	/**
 	 * A native method that is implemented by the 'native-lib' native library,
 	 * which is packaged with this application.
@@ -329,4 +334,7 @@ public class MainActivity extends AppCompatActivity {
 
 	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size);
+	public native void makeBokehEffect(long rgbImageCV, long disparityImageCV, long outputImage,
+	                              double dFocus, double focalLength);
+
 }
