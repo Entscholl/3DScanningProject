@@ -25,8 +25,11 @@ public class ShowBokehDialog extends Activity {
 		double aperture = aperturSlider.getProgress()/1000.0;
 		Mat outputMat = new Mat();
 		mainActivity.makeBokehEffect(rgbImg.nativeObj,disparityImg.nativeObj,outputMat.nativeObj,focus,aperture);
-		Utils.matToBitmap(outputMat, bitmapToRender);
-		imageView.setImageBitmap(bitmapToRender);
+		if(outputMat.cols()>0 && outputMat.rows() >0) {
+			bitmapToRender = Bitmap.createBitmap(outputMat.cols(), outputMat.rows(), Bitmap.Config.ARGB_8888);
+			Utils.matToBitmap(outputMat, bitmapToRender);
+			imageView.setImageBitmap(bitmapToRender);
+		}
 	}
 
 	@Override

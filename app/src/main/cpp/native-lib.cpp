@@ -237,6 +237,7 @@ Java_com_example_stereoreconstruction_MainActivity_takePicture(JNIEnv *env, jobj
     cv::Mat *output = reinterpret_cast<cv::Mat*>(output_mat_addr);
 	StereoReconstruction::Camera::take_picture(output);
 }
+
 JNIEXPORT void JNICALL
 Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
                                                                    jobject ,
@@ -249,11 +250,11 @@ Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
 	auto *disparityImg = reinterpret_cast<cv::Mat *>(disparityImageCV);
 	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
 
-	BokehEffect bokeh{*rgbImg, *disparityImg};
+	BokehEffect bokeh = {*rgbImg, *disparityImg};
 	bokeh.dFocus() = dFocus;
 	bokeh.aperture() = aperture;
 	bokeh.compute();
 
-	outputImg->setTo(bokeh.outputImage());
+	bokeh.outputImage().copyTo(*outputImg);
 }
 }
