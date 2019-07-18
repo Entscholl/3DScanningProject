@@ -118,8 +118,8 @@
         android:id="@+id/z_val"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginBottom="64dp"
         android:ems="6"
         android:hint="z"
         android:inputType="numberSigned|numberDecimal"
@@ -132,20 +132,21 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="64dp"
         android:ems="6"
         android:hint="y"
         android:inputType="numberSigned|numberDecimal"
         app:layout_constraintBottom_toTopOf="@+id/button"
         app:layout_constraintEnd_toStartOf="@+id/z_val"
+        app:layout_constraintHorizontal_bias="0.777"
         app:layout_constraintStart_toEndOf="@+id/x_val" />
 
     <EditText
         android:id="@+id/x_val"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginBottom="64dp"
         android:ems="6"
         android:hint="x"
         android:inputType="numberSigned|numberDecimal"
@@ -180,6 +181,16 @@
         android:text="uncalibrated"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/gyroCheck" />
+
+    <Button
+        android:id="@+id/DispMAP"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="436dp"
+        android:onClick="onDISPButton"
+        android:text="dispIMAGE"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_editor_absoluteX="305dp" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

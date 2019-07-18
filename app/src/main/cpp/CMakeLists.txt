@@ -26,6 +26,7 @@ add_library( # Sets the name of the library.
              CameraStuff.cpp
              BokehEffect.cpp
              Calibration.cpp
+             StereoBlockMatching.cpp
         )
 
 

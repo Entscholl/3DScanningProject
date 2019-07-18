@@ -12,6 +12,7 @@
 #include "CameraStuff.h"
 #include "StereoDepthPipeline.h"
 #include "Calibration.h"
+#include "StereoBlockMatching.h"
 
 extern "C" {
 
@@ -49,6 +50,34 @@ Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jo
     pipeline.set_input_A(inputA);
     pipeline.set_input_B(inputB);
     pipeline.stereo_match(output);
+
+
+    double end = omp_get_wtime();
+    LOGI("Image Processing took: %fs", end-start);
+    return 0;
+}
+JNIEXPORT jint JNICALL
+Java_com_example_stereoreconstruction_MainActivity_computeDISP(JNIEnv *env, jobject,
+                                                                 jlong addrInputA, jlong addrInputB, jlong addrOutputMat, jint num_disparities,
+                                                                 jint block_size){
+    LOGI("Starting Stereo block matching with %d disparities and %d blocksize", num_disparities, block_size);
+    double start = omp_get_wtime();
+
+
+    cv::Mat *output = reinterpret_cast<cv::Mat*>(addrOutputMat);
+    cv::Mat *inputA = reinterpret_cast<cv::Mat*>(addrInputA);
+    cv::Mat *inputB = reinterpret_cast<cv::Mat*>(addrInputB);
+    if(inputA->rows == 0 || inputA->cols == 0 ||
+       inputB->rows == 0 || inputB->cols == 0) {
+        return -1;
+    }
+
+    StereoRecons::StereoDisparityPipeline& pipeline2 = StereoRecons::StereoDisparityPipeline::instance();
+    pipeline2.set_num_disparities(num_disparities);
+    pipeline2.set_block_size(block_size);
+    pipeline2.set_input_A(inputA);
+    pipeline2.set_input_B(inputB);
+    pipeline2.block_match(output);
 
 
     double end = omp_get_wtime();

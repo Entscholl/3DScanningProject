@@ -200,6 +200,44 @@ public class MainActivity extends AppCompatActivity {
 		}
 
 	}
+	public void onDISPButton(View view) {
+		//calibrate();
+
+		if (!capturedA || !capturedB) {
+			Toast.makeText(context, "No images captured, using defaults" ,
+					Toast.LENGTH_SHORT).show();
+			Bitmap bmA = BitmapFactory.decodeResource(getResources(), R.drawable.im0);
+			Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
+			Utils.bitmapToMat(bmA, inputImageA);
+			Utils.bitmapToMat(bmB, inputImageB);
+		}
+
+		if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+			if(!rotatedA) {
+				rotatedA = true;
+				rotate(inputImageA, inputImageA, ROTATE_90_COUNTERCLOCKWISE);
+			}
+			if(!rotatedB) {
+				rotatedB = true;
+				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
+			}
+		}
+		//SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
+		//SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
+		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+		//		outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
+		//		blockSizeBar.getProgress()*2 +1);
+		int status  = computeDISP(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+				outputImageMat.getNativeObjAddr(), 100, 4);
+		if(status == 0) {
+			displayCVMatrix(outputImageMat);
+		} else {
+			if(status == -1) {
+				Toast.makeText(context, "Empty images" ,Toast.LENGTH_SHORT).show();
+			}
+		}
+
+	}
 	public void displayCVMatrix(Mat mat) {
 		if(mat.cols() == 0 || mat.rows() == 0) {
 			Toast.makeText(context, "Not a valid image" , Toast.LENGTH_SHORT).show();
@@ -328,5 +366,7 @@ public class MainActivity extends AppCompatActivity {
 	public native void calibrate();
 
 	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr,
+									int num_disparities, int block_size);
+	public native int computeDISP(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size);
 }
