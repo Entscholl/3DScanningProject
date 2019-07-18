@@ -29,8 +29,8 @@ namespace StereoReconstruction {
         void stereo_match(cv::Mat *output);
 
         void rectify();
-        void rectify_uncalibrated();
-        void rectify_translation_estimate();
+        void rectify_uncalibrated(bool display_information = false);
+        void rectify_translation_estimate(bool display_information = false);
 
         void set_num_disparities(int num_disparities);
         void set_block_size(int block_size);

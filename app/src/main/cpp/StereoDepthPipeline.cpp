@@ -46,13 +46,16 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
     cv::cvtColor(*inputB, B, CV_BGR2GRAY);
     //cv::resize(A, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
     //cv::resize(B, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
-    block_size = 10;
-    num_disparities = 240;
-    auto stereo_block_matcher = cv::StereoSGBM::create(0, num_disparities, block_size);
+    block_size = 8;
+    num_disparities = 128;
+    //auto stereo_block_matcher = cv::StereoSGBM::create(0, num_disparities, block_size);
     //num disparities 240
     //block size 1
-    stereo_block_matcher->setNumDisparities(num_disparities);
-    stereo_block_matcher->setBlockSize(block_size);
+    auto stereo_block_matcher = cv::StereoSGBM::create(0,    //int minDisparity
+                                                              96,     //int numDisparities
+                                                              5);//bool fullDP = false
+    //stereo_block_matcher->setNumDisparities(num_disparities);
+    //stereo_block_matcher->setBlockSize(block_size);
 
     /*
     stereo_block_matcher->setP1(8*3*block_size*block_size);
@@ -69,6 +72,8 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
     */
     stereo_block_matcher->compute(A, B, temp_result );
 
+    //cv::normalize(temp_result, *output, 0, 255, cv::NORM_MINMAX, CV_8U, cv::Mat());
+    //cv::Mat dmap = temp_result * (1.0 / 16.0f);
     temp_result.convertTo(*output, CV_8U);
     //call Triangulation(???)
 }
@@ -145,72 +150,44 @@ void StereoReconstruction::StereoDepthPipeline::set_num_disparities(int num_disp
     this->num_disparities = num_disparities;
 }
 
-void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated() {
+void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool display_information) {
 
-    cv::Mat A;
-    cv::Mat B;
-    cv::cvtColor(*inputA, A, CV_BGR2GRAY);
-    cv::cvtColor(*inputB, B, CV_BGR2GRAY);
 
-    std::vector<cv::KeyPoint> key_points_A;
-    std::vector<cv::KeyPoint> key_points_B;
-    cv::Mat descriptors_A;
-    cv::Mat descriptors_B;
-    cv::Ptr<cv::ORB> detector = cv::ORB::create();
+    //cv::Mat B_tmp;
 
-    detector->detectAndCompute(A, cv::Mat(), key_points_A, descriptors_A);
-    detector->detectAndCompute(B, cv::Mat(), key_points_B, descriptors_B);
-
-    std::vector<cv::DMatch> matches;
-    std::vector<std::vector<cv::DMatch>> temp_matches;
-    cv::FlannBasedMatcher matcher = cv::FlannBasedMatcher(
-            cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
-    matcher.knnMatch(descriptors_A, descriptors_B, temp_matches, 2);
+    //cv::warpPerspective(*inputB,B_tmp, cameraMatrixB*rotate*cameraMatrixB.inv(), inputB->size(),
+    //                    cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
 
     std::vector<cv::Point2f> points_A;
     std::vector<cv::Point2f> points_B;
-    std::vector<int> indices;
-    // Ratio Test, see Lowe et al
-    float ratio = 0.70f;
-    while(indices.size() < 15) {
-        indices.clear();
-        matches.clear();
-        for (const auto &match :temp_matches) {
-            if (match.size() > 1) {
-                if (match[0].distance < match[1].distance * ratio) {
-                    matches.push_back(match[0]);
-                    indices.push_back(match[0].queryIdx);
-                }
-            }
+
+    get_matched_features(inputA, inputB, points_A, points_B);
+
+    cv::Mat F = cv::findFundamentalMat(points_A, points_B, CV_FM_RANSAC, 1, 0.999);
+
+    if(display_information) {
+        std::vector<cv::Point3f> linesA;
+        cv::computeCorrespondEpilines(points_A, 1, F, linesA);
+        std::vector<cv::Point3f> linesB;
+        cv::computeCorrespondEpilines(points_B, 2, F, linesB);
+        for (auto point: points_A) {
+            cv::circle(*inputA, point, 5, cv::Scalar(0, 255, 0));
         }
-        ratio += 0.05f;
-    }
-
-    cv::KeyPoint::convert(key_points_A, points_A, indices);
-    cv::KeyPoint::convert(key_points_B, points_B, indices);
-
-    cv::Mat F = cv::findFundamentalMat(points_A, points_A, CV_FM_RANSAC, 1, 0.999);
-    std::vector<cv::Point3f> linesA;
-    cv::computeCorrespondEpilines(points_A, 1, F, linesA);
-    std::vector<cv::Point3f> linesB;
-    cv::computeCorrespondEpilines(points_B, 2, F, linesB);
-    for(auto point: points_A) {
-        cv::circle(*inputA, point,5,cv::Scalar(0,255,0));
-    }
-    for(auto point: points_B) {
-        cv::circle(*inputB, point,5,cv::Scalar(255,0,0));
-    }
-    for(auto line: linesB) {
-        cv::Point2f pt0(0.f,0.f),pt1(inputA->cols, inputA->rows);
-        pt0.y = -line.z/line.y;
-        pt1.y = -(line.x*pt1.x+line.z)/line.y;
-        cv::line(*inputA,pt0, pt1, cv::Scalar(0,0,255));
-    }
-    for(auto line: linesA) {
-        cv::Point2f pt0(0.f,0.f), pt1(inputB->cols, inputB->rows );
-        pt0.y = -line.z/line.y;
-        pt1.y = -(line.x*pt1.x+line.z)/line.y;
-        cv::line(*inputB,pt0, pt1, cv::Scalar(0,125,255));
+        for (auto point: points_B) {
+            cv::circle(*inputB, point, 5, cv::Scalar(255, 0, 0));
+        }
+        for (auto line: linesB) {
+            cv::Point2f pt0(0.f, 0.f), pt1(inputA->cols, inputA->rows);
+            pt0.y = -line.z / line.y;
+            pt1.y = -(line.x * pt1.x + line.z) / line.y;
+            cv::line(*inputA, pt0, pt1, cv::Scalar(0, 0, 255));
+        }
+        for (auto line: linesA) {
+            cv::Point2f pt0(0.f, 0.f), pt1(inputB->cols, inputB->rows);
+            pt0.y = -line.z / line.y;
+            pt1.y = -(line.x * pt1.x + line.z) / line.y;
+            cv::line(*inputB, pt0, pt1, cv::Scalar(0, 125, 255));
+        }
     }
     //cv::drawMatches(*inputA, key_points_A, *inputB, key_points_B, matches, *output);
 
@@ -226,16 +203,16 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated() {
 
 }
 
-void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate() {
+void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(bool display_information) {
     //I don't actually know why the transpose (= inverse because rotation) works here
-    cv::Mat B_tmp;
+    //cv::Mat B_tmp;
 
-    cv::warpPerspective(*inputB,B_tmp, cameraMatrixB*rotate*cameraMatrixB.inv(), inputB->size(),
-            cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
+    //cv::warpPerspective(*inputB,B_tmp, cameraMatrixB*rotate*cameraMatrixB.inv(), inputB->size(),
+    //        cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
 
     std::vector<cv::Point2f> points_A, points_B;
 
-    get_matched_features(inputA, &B_tmp, points_A, points_B);
+    get_matched_features(inputA, inputB, points_A, points_B);
     //detect_corners(*inputA, A_corners, true);
     //detect_corners(B_tmp, B_corners, true);
 
@@ -246,6 +223,31 @@ void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate() {
     LOGI("Estimated translation: %f, %f, %f", translate(0), translate(1), translate(2));
     //rectify();
 
+    cv::Matx33f F = cameraMatrixA.inv().t()*rotate*cameraMatrixB.inv();
+    if(display_information) {
+        std::vector<cv::Point3f> linesA;
+        cv::computeCorrespondEpilines(points_A, 1, F, linesA);
+        std::vector<cv::Point3f> linesB;
+        cv::computeCorrespondEpilines(points_B, 2, F, linesB);
+        for (auto point: points_A) {
+            cv::circle(*inputA, point, 10, cv::Scalar(0, 255, 0));
+        }
+        for (auto point: points_B) {
+            cv::circle(*inputB, point, 10, cv::Scalar(255, 0, 0));
+        }
+        for (auto line: linesB) {
+            cv::Point2f pt0(0.f, 0.f), pt1(inputA->cols, inputA->rows);
+            pt0.y = -line.z / line.y;
+            pt1.y = -(line.x * pt1.x + line.z) / line.y;
+            cv::line(*inputA, pt0, pt1, cv::Scalar(0, 0, 255));
+        }
+        for (auto line: linesA) {
+            cv::Point2f pt0(0.f, 0.f), pt1(inputB->cols, inputB->rows);
+            pt0.y = -line.z / line.y;
+            pt1.y = -(line.x * pt1.x + line.z) / line.y;
+            cv::line(*inputB, pt0, pt1, cv::Scalar(0, 125, 255));
+        }
+    }
 
     cv::Matx33f transform_x = cv::Matx33f::zeros();
     transform_x(0,1) = -translate(2);
@@ -257,15 +259,10 @@ void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate() {
     transform_x(2,0) = -translate(1);
     transform_x(2,1) = translate(0);
 
-    cv::warpPerspective(*inputB,*inputB, cameraMatrixB*rotate*cameraMatrixB.inv(),
+    cv::warpPerspective(*inputB,*inputB, F,
                         inputB->size(),cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
 
-    for(auto point : points_A) {
-        cv::circle(*inputA, point,10,cv::Scalar(0,255,0));
-    }
-    for(auto point : points_B) {
-        cv::circle(*inputB, point,10,cv::Scalar(255,0,0));
-    }
+
 }
 
 void StereoReconstruction::StereoDepthPipeline::detect_corners(cv::Mat &image,
@@ -370,7 +367,7 @@ StereoReconstruction::StereoDepthPipeline::estimate_translation(const std::vecto
                                                                 const cv::Matx33f &camera_matrix_B){
     cv::Vec2f result(0.0f);
     int counts = 0;
-    cv::Matx33f F_tmp = rotation*camera_matrix_B.inv();
+    cv::Matx33f F_tmp = rotation*camera_matrix_B.t();
     for(int i = 0; i < pointsA.size();i++) {
         cv::Matx31f x1, x_1;
         x_1(0) = pointsA[i].x;
@@ -437,14 +434,16 @@ StereoReconstruction::StereoDepthPipeline::get_matched_features(cv::Mat *image_A
     detector->detectAndCompute(B, cv::Mat(), key_points_B, descriptors_B);
 
     std::vector<std::vector<cv::DMatch>> matches;
-    cv::BFMatcher matcher = cv::BFMatcher();
-    //cv::FlannBasedMatcher matcher = cv::FlannBasedMatcher(
-    //        cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
-    matcher.knnMatch(descriptors_A, descriptors_B, matches, 200);
+    //cv::BFMatcher matcher = cv::BFMatcher();
+    cv::FlannBasedMatcher matcher = cv::FlannBasedMatcher(
+            cv::makePtr<cv::flann::LshIndexParams>(12, 20, 2));
+    matcher.knnMatch(descriptors_A, descriptors_B, matches, 2);
+
 
 
     std::vector<int> indicesA, indicesB;
-    double tresholdDist = 0.25*0.25 * double(inputA->size().height*inputA->size().height +
+    /*
+    double tresholdDist = 0.20*0.20 * double(inputA->size().height*inputA->size().height +
                                              inputA->size().width*inputA->size().width);
 
 
@@ -460,6 +459,16 @@ StereoReconstruction::StereoDepthPipeline::get_matched_features(cv::Mat *image_A
             if (norm < tresholdDist && y < 25) {
                 indicesA.push_back(match[i].queryIdx);
                 indicesB.push_back(match[i].trainIdx);
+            }
+        }
+
+    }
+    */
+    for (const auto &match :matches) {
+        if (match.size() > 1) {
+            if (match[0].distance < match[1].distance * 0.8) {
+                indicesA.push_back(match[0].queryIdx);
+                indicesB.push_back(match[0].trainIdx);
             }
         }
     }

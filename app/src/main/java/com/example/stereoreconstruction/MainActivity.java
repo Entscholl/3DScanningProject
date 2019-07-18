@@ -281,9 +281,10 @@ public class MainActivity extends AppCompatActivity {
         CheckBox gyro_box = findViewById(R.id.gyroCheck);
         CheckBox accel_box = findViewById(R.id.accelCheck);
         CheckBox uncalibrated_box = findViewById(R.id.uncalibratedCheck);
+		CheckBox debug_info_box = findViewById(R.id.debugInfo);
         rectifyImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 				outputImageMat.getNativeObjAddr(), x, y, z, gyro_box.isChecked(),
-                accel_box.isChecked(), uncalibrated_box.isChecked());
+                accel_box.isChecked(), uncalibrated_box.isChecked(), debug_info_box.isChecked());
 		displayCVMatrix(outputImageMat);
 	}
 	public void onTakeImageButton(View view) {
@@ -328,7 +329,7 @@ public class MainActivity extends AppCompatActivity {
 	public native void stopMeasurement();
 	public native void rectifyImages(long inputMatA, long inputMatB, long outputMatAddr ,float x
 									,float y, float z, boolean use_gyro, boolean use_accel,
-									 boolean use_uncalibrated);
+									 boolean use_uncalibrated, boolean show_debug_info);
 	public native void addCalibrationImage();
 	public native void calibrate();
 

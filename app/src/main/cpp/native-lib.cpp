@@ -61,7 +61,8 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
                                                                  jlong addrInputA, jlong addrInputB,
                                                                  jlong addrOutputMat, jfloat x,
                                                                  jfloat y, jfloat z, jboolean use_gyro,
-                                                                 jboolean use_accel, jboolean use_uncalibrated) {
+                                                                 jboolean use_accel, jboolean use_uncalibrated,
+                                                                 jboolean show_debug_info) {
     LOGI("Starting Image Rectification");
     double start = omp_get_wtime();
     cv::Mat *output = reinterpret_cast<cv::Mat*>(addrOutputMat);
@@ -73,8 +74,8 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
     }
 
     StereoReconstruction::StereoDepthPipeline& pipeline = StereoReconstruction::StereoDepthPipeline::instance();
-    pipeline.set_input_A(inputA);
-    pipeline.set_input_B(inputB);
+    pipeline.set_input_A(inputB);
+    pipeline.set_input_B(inputA );
     cv::Mat cameraMatrix[2], distortion_coefficents[2];
     for(int i = 0; i <2; i++) {
         distortion_coefficents[i] = cv::Mat::zeros(1, 5, CV_64F);
@@ -145,9 +146,10 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
         pipeline.set_translate_vector(cv::Vec3f(x, y, z));
     }
     if(use_uncalibrated) {
-        pipeline.rectify_translation_estimate();
+        pipeline.rectify_translation_estimate(show_debug_info);
     } else {
-        pipeline.rectify();
+        //pipeline.rectify();
+        pipeline.rectify_uncalibrated(show_debug_info);
     }
     cv::hconcat(*inputA, *inputB, *output);
 
