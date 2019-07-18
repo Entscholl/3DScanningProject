@@ -151,8 +151,8 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
         //pipeline.rectify();
         pipeline.rectify_uncalibrated(show_debug_info);
     }
-    cv::hconcat(*inputA, *inputB, *output);
-
+    cv::Mat out;
+    cv::hconcat(*inputA, *inputB, out);
     double end = omp_get_wtime();
     LOGI("Image Rectifying took: %fs", end-start);
     return 0;
@@ -233,15 +233,13 @@ Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
                                                                    jlong rgbImageCV,
                                                                    jlong disparityImageCV,
                                                                    jlong outputImage,
-                                                                   const double dFocus,
-                                                                   const double aperture) {
+                                                                   const float dFocus) {
 	auto *rgbImg = reinterpret_cast<cv::Mat *>(rgbImageCV);
 	auto *disparityImg = reinterpret_cast<cv::Mat *>(disparityImageCV);
 	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
 
 	BokehEffect bokeh = {*rgbImg, *disparityImg};
 	bokeh.dFocus() = dFocus;
-	bokeh.aperture() = aperture;
 	bokeh.compute();
 
 	bokeh.outputImage().copyTo(*outputImg);

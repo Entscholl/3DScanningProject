@@ -12,6 +12,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Surface;
@@ -189,6 +190,9 @@ public class MainActivity extends AppCompatActivity {
 		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 				outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
 				blockSizeBar.getProgress()*2 +1);
+		Mat blurred = new Mat();
+		Imgproc.GaussianBlur(outputImageMat,blurred,new Size(9,9),3);
+		outputImageMat = blurred;
 		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 		//		outputImageMat.getNativeObjAddr(), 16, 5);
 		if(status == 0) {
@@ -336,6 +340,6 @@ public class MainActivity extends AppCompatActivity {
 	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size);
 	public native void makeBokehEffect(long rgbImageCV, long disparityImageCV, long outputImage,
-	                              double dFocus, double focalLength);
+	                              float dFocus);
 
 }
