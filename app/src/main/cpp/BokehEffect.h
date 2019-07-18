@@ -15,6 +15,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/utility.hpp>
+#include <jni.h>
 
 class BokehEffect{
 		cv::Mat & _rgbInput;
@@ -48,8 +49,13 @@ public:
 
 		unsigned int cocListSize() {return _cocListSize;}
 
+
 		double theta(const cv::Vec2i p){
+			constexpr double DEPTH_MAX_VALUE = 10000000.0;
 			const auto depth = _depthInput.at<double>(p);
+			if(depth <=-DEPTH_MAX_VALUE || depth >= DEPTH_MAX_VALUE){
+				return 0;
+			}
 			return std::abs(_aperture*_focalLength*(_dFocus-depth)/(depth*(_dFocus -_focalLength)));
 		}
 

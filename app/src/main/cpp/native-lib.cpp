@@ -12,6 +12,7 @@
 #include "CameraStuff.h"
 #include "StereoDepthPipeline.h"
 #include "Calibration.h"
+#include "BokehEffect.h"
 
 extern "C" {
 
@@ -222,5 +223,25 @@ Java_com_example_stereoreconstruction_MainActivity_takePicture(JNIEnv *env, jobj
     output_mat_addr) {
     cv::Mat *output = reinterpret_cast<cv::Mat*>(output_mat_addr);
 	StereoReconstruction::Camera::take_picture(output);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
+                                                                   jobject ,
+                                                                   jlong rgbImageCV,
+                                                                   jlong disparityImageCV,
+                                                                   jlong outputImage,
+                                                                   const double dFocus,
+                                                                   const double aperture) {
+	auto *rgbImg = reinterpret_cast<cv::Mat *>(rgbImageCV);
+	auto *disparityImg = reinterpret_cast<cv::Mat *>(disparityImageCV);
+	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
+
+	BokehEffect bokeh = {*rgbImg, *disparityImg};
+	bokeh.dFocus() = dFocus;
+	bokeh.aperture() = aperture;
+	bokeh.compute();
+
+	bokeh.outputImage().copyTo(*outputImg);
 }
 }

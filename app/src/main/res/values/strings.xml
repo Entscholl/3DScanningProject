@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">StereoReconstruction</string>
+    <string name="bokehDescription">our bokeh effect</string>
+    <string name="focallength">focalLength</string>
+    <string name="aperture">aperture</string>
+    <string name="the_bokehimage">The BokehImage</string>
 </resources>
