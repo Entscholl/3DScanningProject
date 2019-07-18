@@ -84,7 +84,7 @@
         app:layout_constraintBottom_toTopOf="@+id/CalculateButton"
         app:layout_constraintEnd_toStartOf="@+id/DisplayB"
         app:layout_constraintStart_toEndOf="@+id/DisplayA" />
-    <!--
+    <!-- -->
         <SeekBar
             android:id="@+id/disparitiesBar"
             style="@style/Widget.AppCompat.SeekBar.Discrete"
@@ -96,7 +96,7 @@
             android:max="128"
             android:min="1"
             android:progress="1"
-            app:layout_constraintBottom_toTopOf="@+id/button"
+            app:layout_constraintBottom_toTopOf="@+id/y_val"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -113,7 +113,7 @@
             app:layout_constraintBottom_toTopOf="@+id/disparitiesBar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
-    -->
+    <!-- -->
     <EditText
         android:id="@+id/z_val"
         android:layout_width="wrap_content"

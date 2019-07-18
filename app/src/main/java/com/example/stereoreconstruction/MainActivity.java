@@ -184,13 +184,13 @@ public class MainActivity extends AppCompatActivity {
 				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
 			}
 		}
-		//SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
-		//SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
-		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-		//		outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
-		//		blockSizeBar.getProgress()*2 +1);
+		SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
+		SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
 		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-				outputImageMat.getNativeObjAddr(), 16, 5);
+				outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
+				blockSizeBar.getProgress()*2 +1);
+		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+		//		outputImageMat.getNativeObjAddr(), 16, 5);
 		if(status == 0) {
 			displayCVMatrix(outputImageMat);
 		} else {
