@@ -104,8 +104,7 @@ void BokehEffect::compute() {
 			const float stddev = depthScale;
 			const int radius = (int) std::ceil(stddev * 3);
 			cv::Vec3b outPixel = {0, 0, 0};
-			//double first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
-			if(radius == 0) {
+			if(radius <= 1) {
                 outputImage.at<cv::Vec3b>(x, y) = _rgbInput.at<cv::Vec3b>(x, y);
 			    continue;
 			}
@@ -126,7 +125,10 @@ void BokehEffect::compute() {
 		}
 		//LOGI("x: %i", x);
 	}
-	_outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
+    double end = omp_get_wtime();
+    LOGI("Blur took: %fs",end- start);
+    start = end;
+    _outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
 	#pragma omp parallel for schedule(guided)
 	for (int x = 0; x < outputImage.rows; ++x) {
 		for (int y = 0; y < outputImage.cols; ++y) {
@@ -137,12 +139,16 @@ void BokehEffect::compute() {
 			const float stddev = depthScale;
 			const int radius = (int) std::ceil(stddev * 3);
 			cv::Vec3b outPixel = {0, 0, 0};
-			double first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
+            if(radius <= 1) {
+                _outputImage.at<cv::Vec3b>(x, y) = _rgbInput.at<cv::Vec3b>(x, y);
+                continue;
+            }
+			float first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
 			for (unsigned int j = std::max<unsigned int>(y - radius, 0);
 				j <= std::min<int>(y + radius, _rgbInput.cols - 1); ++j) {
 
 				const auto inPixel = outputImage.at<cv::Vec3b>(x, j);
-				double g = first_term * std::exp(-(((j - y) * (j - y)) / (2 * stddev * stddev)));
+				float g = first_term * std::exp(-(((j - y) * (j - y)) / (2 * stddev * stddev)));
 				if (g > 1) {
 					g = 1;
 				}
@@ -153,6 +159,6 @@ void BokehEffect::compute() {
 		}
 		//LOGI("x: %i", x);
 	}
-	double end = omp_get_wtime();
+	end = omp_get_wtime();
 	LOGI("Blur took: %fs",end- start);
 }
