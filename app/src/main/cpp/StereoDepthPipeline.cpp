@@ -51,9 +51,10 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
     //auto stereo_block_matcher = cv::StereoSGBM::create(0, num_disparities, block_size);
     //num disparities 240
     //block size 1
-    auto stereo_block_matcher = cv::StereoSGBM::create(0,    //int minDisparity
-                                                              96,     //int numDisparities
-                                                              5);//bool fullDP = false
+    //auto stereo_block_matcher = cv::StereoSGBM::create(0,    //int minDisparity
+    //                                                          96,     //int numDisparities
+    //                                                          5);//bool fullDP = false
+    auto stereo_block_matcher = cv::StereoBM::create(96, 5);//bool fullDP = false
     //stereo_block_matcher->setNumDisparities(num_disparities);
     //stereo_block_matcher->setBlockSize(block_size);
 
@@ -74,6 +75,7 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
 
     //cv::normalize(temp_result, *output, 0, 255, cv::NORM_MINMAX, CV_8U, cv::Mat());
     //cv::Mat dmap = temp_result * (1.0 / 16.0f);
+    //temp_result *= (1.0 / 16.0f);
     temp_result.convertTo(*output, CV_8U);
     //call Triangulation(???)
 }
