@@ -239,7 +239,7 @@ Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
 	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
 
 	BokehEffect bokeh = {*rgbImg, *disparityImg};
-	bokeh.dFocus() = dFocus;
+	bokeh.focalLength() = dFocus;
 	bokeh.compute();
 
 	bokeh.outputImage().copyTo(*outputImg);

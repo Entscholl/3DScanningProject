@@ -315,6 +315,7 @@ public class MainActivity extends AppCompatActivity {
 	}
 
 	public void onShowBokeh(View view){
+		//inputImageA = Highgui.imread
 		ShowBokehDialog.displayBokehDialog(this,inputImageA,outputImageMat);
 	}
 
