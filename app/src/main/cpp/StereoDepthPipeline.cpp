@@ -1,4 +1,5 @@
 #include <opencv2/calib3d/calib3d_c.h>
+#include <omp.h>
 #include "StereoDepthPipeline.h"
 #include "StdHeader.h"
 
@@ -30,7 +31,7 @@ void StereoReconstruction::StereoDepthPipeline::set_distortion_coefficients_B(co
     distortionCoefficientsB = distortion_coeffs;
 }
 
-void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
+void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output, bool blur) {
     cv::Mat A;
     cv::Mat B;
     cv::Mat temp_result;
@@ -44,17 +45,18 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
     //cv::resize(*inputB, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
     cv::cvtColor(*inputA, A, CV_BGR2GRAY);
     cv::cvtColor(*inputB, B, CV_BGR2GRAY);
-    //cv::resize(A, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
-    //cv::resize(B, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
+    cv::resize(A, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
+    cv::resize(B, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
+
     block_size = 8;
     num_disparities = 128;
     //auto stereo_block_matcher = cv::StereoSGBM::create(0, num_disparities, block_size);
     //num disparities 240
     //block size 1
-    //auto stereo_block_matcher = cv::StereoSGBM::create(0,    //int minDisparity
-    //                                                          96,     //int numDisparities
-    //                                                          5);//bool fullDP = false
-    auto stereo_block_matcher = cv::StereoBM::create(96, 5);//bool fullDP = false
+    auto stereo_block_matcher = cv::StereoSGBM::create(0,    //int minDisparity
+                                                              96,     //int numDisparities
+                                                              7);//bool fullDP = false
+    //auto stereo_block_matcher = cv::StereoBM::create(128, 11);//bool fullDP = false
     //stereo_block_matcher->setNumDisparities(num_disparities);
     //stereo_block_matcher->setBlockSize(block_size);
 
@@ -76,7 +78,12 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output) {
     //cv::normalize(temp_result, *output, 0, 255, cv::NORM_MINMAX, CV_8U, cv::Mat());
     //cv::Mat dmap = temp_result * (1.0 / 16.0f);
     //temp_result *= (1.0 / 16.0f);
+    if(blur)
+        blur_disparity(&temp_result,2.f);
+
+    //cv::resize(temp_result, temp_result, cv::Size(), 2, 2);
     temp_result.convertTo(*output, CV_8U);
+
     //call Triangulation(???)
 }
 
@@ -206,6 +213,8 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool displa
     cv::Mat H1, H2;
     try {
         cv::stereoRectifyUncalibrated(points_A, points_B, F, inputA->size(), H1, H2);
+        H = H1;
+        H_ = H2;
         cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
         cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
         if(output != nullptr) {
@@ -286,8 +295,46 @@ void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(boo
     try {
         cv::Mat H1, H2;
         cv::stereoRectifyUncalibrated(points_A, points_B, F, inputA->size(), H1, H2);
-        cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
-        cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
+        /*
+        cv::Mat remap[2][2];
+        cv::initUndistortRectifyMap(cameraMatrixA, std::vector<float>(),
+                cameraMatrixA.inv()*H1*cameraMatrixA, cameraMatrixA, inputA->size(), CV_16SC2,
+                remap[0][0], remap[0][1]);
+        cv::initUndistortRectifyMap(cameraMatrixB, std::vector<float>(),
+                cameraMatrixB.inv()*H2*cameraMatrixB, cameraMatrixB, inputB->size(), CV_16SC2,
+                                    remap[1][0], remap[1][1]);
+        cv::remap(*inputA, *inputA, remap[0][0], remap[0][1], CV_INTER_LINEAR);
+        cv::remap(*inputB, *inputB, remap[1][0], remap[1][1], CV_INTER_LINEAR);
+        */
+        /*
+        cv::Matx34d P = {0., (double)inputA->size().width, (double)inputA->size().width, 0,
+                         0, 0, (double)inputA->size().height, (double)inputA->size().height,
+                         1, 1,  1,  1};
+        cv::Mat P_ = H1 * P;
+        cv::Mat row_1 = P_.row(0) / P_.row(2);
+        cv::Mat row_2 = P_.row(1) / P_.row(2);
+        double minx, maxx, miny,maxy;
+        cv::minMaxIdx(row_1, &minx, &maxx);
+        cv::minMaxIdx(row_2, &miny, &maxy);
+        LOGI("(%f,%f) (%f,%f)", minx, maxx,miny ,maxy );
+        cv::Size new_size = cv::Size(maxx-minx, maxy-miny);
+        cv::Matx33d mul = {1.,0,(double) std::min(-minx,0.),
+                           0, 1, (double)  std::min(-miny,0.),
+                           0, 0,  1};
+        //H1 = H1*mul;
+        LOGI("(%d,%d)", new_size.width, new_size.height);
+        if(new_size.width > 4000 ||new_size.width <= 0 ||new_size.height <= 0  || new_size.height > 4000) new_size = inputA->size();
+        cv::Mat tmp(new_size, CV_8UC3);
+        */
+        cv::Mat tmpA = inputA->clone();
+        cv::Mat tmpB = inputB->clone();
+        //cv::resize(*inputA, *inputA, new_size);
+        //cv::resize(*inputB, *inputB, new_size);
+        cv::warpPerspective(tmpA, *inputA, H1, inputA->size());
+        //cv::warpPerspective(tmp, *inputB, H1, inputA->size(),  cv::WARP_INVERSE_MAP);
+        cv::warpPerspective(tmpB, *inputB, H2, inputA->size());
+        H = H1;
+        H_ = H2;
         if(output != nullptr) {
             cv::hconcat(*inputA, *inputB, *output);
         }
@@ -459,7 +506,7 @@ StereoReconstruction::StereoDepthPipeline::estimate_translation(const std::vecto
     t(1) = result(0);
     t(2) = result(1);
     //Assume |t| = 1;
-    t /= sqrt(t.dot(t));
+    //t /= sqrt(t.dot(t));
     LOGI("Estimated translation: (%f, %f, %f)",t(0), t(1), t(2));
     return t;
 }
@@ -591,5 +638,49 @@ void StereoReconstruction::StereoDepthPipeline::log_float_mat(const cv::Mat &mat
         }
         LOGI("%s: %s",mat_name, ss.str().c_str());
     }
+}
+
+void StereoReconstruction::StereoDepthPipeline::blur_disparity(cv::Mat *img, float std_dev) {
+    std::vector<float> weights;
+    const int radius = (int) std::floor(std_dev * 3);
+    float first_term = (1.f / sqrt(2 * 3.1415f * std_dev * std_dev));
+    for (int i = -radius; i <= radius; ++i) {
+        float g = first_term * std::exp(-(((i +radius) * (i+radius)) / (2 * std_dev * std_dev)));
+        weights.push_back(g);
+    }
+
+    cv::Mat depth_temp = cv::Mat(img->rows, img->cols, CV_16S);
+    double start = omp_get_wtime();
+    #pragma omp parallel for schedule(guided)
+    for (int x = 0; x < img->rows; ++x) {
+        for (int y = 0; y < img->cols; ++y) {
+            short outPixel = 0;
+            for (unsigned int i = std::max<unsigned int>(x - radius, 0);
+                 i <= std::min<int>(x + radius, img->rows - 1); ++i) {
+                const auto inPixel = img->at<short>(i, y);
+                outPixel += inPixel * weights[i-x + radius];
+            }
+            depth_temp.at<short>(x, y) = outPixel;
+        }
+    }
+    #pragma omp parallel for schedule(guided)
+    for (int x = 0; x < img->rows; ++x) {
+        for (int y = 0; y < img->cols; ++y) {
+            short outPixel = 0;
+            for (unsigned int j = std::max<unsigned int>(y - radius, 0);
+                 j <= std::min<int>(y + radius, img->cols - 1); ++j) {
+                const auto inPixel = depth_temp.at<short>(x, j);
+                outPixel += inPixel * weights[j-y + radius];
+            }
+            img->at<short>(x, y) = outPixel;
+        }
+    }
+    double end = omp_get_wtime();
+    LOGI("Blur took: %fs", end - start);
+}
+
+void StereoReconstruction::StereoDepthPipeline::undo_rectification(cv::Mat *out) {
+    cv::Mat tmp = out->clone();
+    cv::warpPerspective(tmp, *out, H, out->size(), cv::WARP_INVERSE_MAP);
 }
 

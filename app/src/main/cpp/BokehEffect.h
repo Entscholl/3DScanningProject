@@ -41,7 +41,7 @@ public:
 
 		}
 
-		double & focalLenth(){return _focalLength;}
+		double & focalLength(){return _focalLength;}
 		double & aperture(){return _aperture;}
 		double & dFocus(){ return _dFocus;}
 		double & wfullframe(){ return _wfullframe;}
