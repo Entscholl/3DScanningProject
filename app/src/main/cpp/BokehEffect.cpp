@@ -1,29 +1,30 @@
 #include "BokehEffect.h"
 #include "StdHeader.h"
 #include <memory>
+#include <algorithm>
+#include <omp.h>
 
-struct COCListEntry{
-	double depth;
-	cv::Vec2i circleCenter;
+struct COCListEntry {
+		double depth;
+		cv::Vec2i circleCenter;
 };
 
-void insertSorted(std::vector<COCListEntry> & list, COCListEntry l,const uint32_t maxSize){
+void insertSorted(std::vector<COCListEntry> &list, COCListEntry l, const uint32_t maxSize) {
 
-	auto len = std::min((uint32_t)list.size(),maxSize);
-	for(int i = 0; i < len;++i){
-		COCListEntry & entry = list[i];
-		if(entry.depth < l.depth){
-			std::swap(entry,l);
+	auto len = std::min((uint32_t) list.size(), maxSize);
+	for (int i = 0; i < len; ++i) {
+		COCListEntry &entry = list[i];
+		if (entry.depth < l.depth) {
+			std::swap(entry, l);
 		}
-		len = std::min((uint32_t)list.size(),maxSize);
+		len = std::min((uint32_t) list.size(), maxSize);
 	}
-	if(list.size() <maxSize){
+	if (list.size() < maxSize) {
 		list.push_back(l);
 	}
 }
 
-void BokehEffect::compute(){
-	_outputImage = cv::Mat(_rgbInput.rows,_rgbInput.cols,CV_8UC3);
+void BokehEffect::compute() {
 	//First: prepare the list of nearest circles of confusion
 
 	/*
@@ -87,33 +88,74 @@ void BokehEffect::compute(){
 			_outputImage.at<cv::Vec3b>(x,y) = bokehPixel;
 		}
 	}*/
-	//GaussianBlurBackup
 
-	_outputImage.setTo(cv::Scalar(0,0,0));
-#pragma omp parallel for schedule(dynamic)
-	for(int x = 0; x < _rgbInput.rows;++x) {
-		for(int y = 0; y < _rgbInput.cols;++y) {
-			auto depth = _depthInput.at<unsigned char>(x,y);
-			auto inPixel = _rgbInput.at<cv::Vec3b>(x, y);
-			if(depth >0) {
-				double depthScale = (512 / depth) * _focalLength;
-				unsigned int radius = std::ceil(2 * depthScale);
-				for (int i = x - radius; i <= x + radius; ++i) {
-					for (int j = y - radius; j <= y + radius; ++j) {
-						const auto g = 1 / (2 * 3.1415 * depthScale) *
-						               std::exp(-((i - x) * (i - x) + (j - y) * (j - y)) / (2 * depthScale));
-						_outputImage.at<cv::Vec3b>(x, y) += g * inPixel;
-					}
-				}
-				LOGI("x: %i, %i", x, radius);
+	cv::Mat outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
+	LOGI("focal length: %f", _focalLength);
+    //GaussianBlurBackup
+	double start = omp_get_wtime();
+#pragma omp parallel for schedule(guided)
+	for (int x = 0; x < _rgbInput.rows; ++x) {
+		for (int y = 0; y < _rgbInput.cols; ++y) {
+			auto depth = _depthInput.at<unsigned char>(x, y);
+
+			const float depthScale = std::max(
+					std::min(5.f + 5 * (-(float) depth * (float) _focalLength) / 128.0f, 5.f), 0.f);
+			const float stddev = depthScale;
+			const int radius = (int) std::floor(stddev * 3);
+			cv::Vec3b outPixel = {0, 0, 0};
+			if (radius < 1) {
+				outputImage.at<cv::Vec3b>(x, y) = _rgbInput.at<cv::Vec3b>(x, y);
+				continue;
 			}
-			else{
-				_outputImage.at<cv::Vec3b>(x,y)=inPixel;
+			float first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
+			for (unsigned int i = std::max<unsigned int>(x - radius, 0);
+			     i <= std::min<int>(x + radius, _rgbInput.rows - 1); ++i) {
+
+				const auto inPixel = _rgbInput.at<cv::Vec3b>(i, y);
+				//double g = first_term * std::exp(-(((i - x) * (i - x)) / (2 * stddev * stddev)));
+				float g = first_term * std::exp(-(((i - x) * (i - x)) / (2 * stddev * stddev)));
+				if (g > 1) {
+					g = 1;
+				}
+				outPixel += g * inPixel;
+
+			}
+			outputImage.at<cv::Vec3b>(x, y) = outPixel;
+		}
+		//LOGI("x: %i", x);
+	}
+	_outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
+    #pragma omp parallel for schedule(guided)
+	for (int x = 0; x < outputImage.rows; ++x) {
+		for (int y = 0; y < outputImage.cols; ++y) {
+			auto depth = _depthInput.at<unsigned char>(x, y);
+
+			const float depthScale = std::max(
+					std::min(5.f + 5 * (-(float) depth * (float) _focalLength) / 128.0f, 5.f), 0.f);
+			const float stddev = depthScale;
+			const int radius = (int) std::ceil(stddev * 3);
+			if (radius < 1) {
+				_outputImage.at<cv::Vec3b>(x, y) = _rgbInput.at<cv::Vec3b>(x, y);
+				continue;
+			}
+			cv::Vec3b outPixel = {0, 0, 0};
+			float first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
+			for (unsigned int j = std::max<unsigned int>(y - radius, 0);
+			     j <= std::min<int>(y + radius, _rgbInput.cols - 1); ++j) {
+
+				const auto inPixel = outputImage.at<cv::Vec3b>(x, j);
+				float g = first_term * std::exp(-(((j - y) * (j - y)) / (2 * stddev * stddev)));
+				if (g > 1) {
+					g = 1;
+				}
+				outPixel += g * inPixel;
+
+
+				_outputImage.at<cv::Vec3b>(x, y) = outPixel;
 			}
 		}
-
+		//LOGI("x: %i", x);
 	}
-
-
-
+	double end = omp_get_wtime();
+	LOGI("Blur took: %fs", end - start);
 }

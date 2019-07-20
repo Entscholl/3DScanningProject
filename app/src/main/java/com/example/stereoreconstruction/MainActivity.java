@@ -12,6 +12,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Surface;
@@ -50,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
 	static Mat outputImageMat;
 	static Mat inputImageA;
 	static Mat inputImageB;
+	static boolean rectified = false;
 	static boolean rotatedA = false;
 	static boolean rotatedB = false;
 	static boolean capturedA = false;
@@ -66,10 +68,28 @@ public class MainActivity extends AppCompatActivity {
 					}
 					if(inputImageA == null) {
 						inputImageA= new Mat();
+						Bitmap bmA = BitmapFactory.decodeResource(getResources(), R.drawable.im0);
+						Utils.bitmapToMat(bmA, inputImageA);
+						Imgproc.cvtColor(inputImageA, inputImageA, COLOR_BGRA2BGR );
+						//if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+						//	rotatedA = true;
+						//}
+						rotatedA = true;
+						capturedA = true;
 					}
 					if(inputImageB == null) {
 						inputImageB= new Mat();
+						Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
+						Utils.bitmapToMat(bmB, inputImageB);
+						Imgproc.cvtColor(inputImageB, inputImageB, COLOR_BGRA2BGR );
+						//if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+						//	rotatedB = true;
+						//}
+						rotatedB = true;
+						capturedB = true;
 					}
+
+
 				} break;
 				default:
 				{
@@ -165,14 +185,6 @@ public class MainActivity extends AppCompatActivity {
 	public void onCalculateButton(View view) {
 		//calibrate();
 
-		if (!capturedA || !capturedB) {
-			Toast.makeText(context, "No images captured, using defaults" ,
-					Toast.LENGTH_SHORT).show();
-			Bitmap bmA = BitmapFactory.decodeResource(getResources(), R.drawable.im0);
-			Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
-			Utils.bitmapToMat(bmA, inputImageA);
-			Utils.bitmapToMat(bmB, inputImageB);
-		}
 
 		if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			if(!rotatedA) {
@@ -183,12 +195,25 @@ public class MainActivity extends AppCompatActivity {
 				rotatedB = true;
 				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
 			}
+		} else {
+			if(rotatedA) {
+				rotatedA = false;
+				rotate(inputImageA, inputImageA, ROTATE_90_CLOCKWISE);
+			}
+			if(rotatedB) {
+				rotatedB = false;
+				rotate(inputImageB, inputImageB, ROTATE_90_CLOCKWISE);
+			}
 		}
 		SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
 		SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
+		CheckBox accel_box = findViewById(R.id.accelCheck);
 		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 				outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
-				blockSizeBar.getProgress()*2 +1);
+				blockSizeBar.getProgress()*2 +1,accel_box.isChecked(), rectified);
+		Mat blurred = new Mat();
+		Imgproc.GaussianBlur(outputImageMat,blurred,new Size(9,9),3);
+		outputImageMat = blurred;
 		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 		//		outputImageMat.getNativeObjAddr(), 16, 5);
 		if(status == 0) {
@@ -263,6 +288,12 @@ public class MainActivity extends AppCompatActivity {
 					rotate(inputImageA, inputImageA, ROTATE_90_COUNTERCLOCKWISE);
 				}
 			}
+			else {
+				if(rotatedA) {
+					rotatedA = false;
+					rotate(inputImageA, inputImageA, ROTATE_90_CLOCKWISE);
+				}
+			}
 			displayCVMatrix(inputImageA);
 		} else {
 			Toast.makeText(context, "No image captured", Toast.LENGTH_SHORT).show();
@@ -275,6 +306,11 @@ public class MainActivity extends AppCompatActivity {
 				if(!rotatedB) {
 					rotatedB = true;
 					rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
+				}
+			}else {
+				if(rotatedB) {
+					rotatedB = false;
+					rotate(inputImageB, inputImageB, ROTATE_90_CLOCKWISE);
 				}
 			}
 			displayCVMatrix(inputImageB);
@@ -291,6 +327,15 @@ public class MainActivity extends AppCompatActivity {
 			if(!rotatedB) {
 				rotatedB = true;
 				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
+			}
+		} else {
+			if(rotatedA) {
+				rotatedA = false;
+				rotate(inputImageA, inputImageA, ROTATE_90_CLOCKWISE);
+			}
+			if(rotatedB) {
+				rotatedB = false;
+				rotate(inputImageB, inputImageB, ROTATE_90_CLOCKWISE);
 			}
 		}
 		if (!capturedA || !capturedB) {
@@ -319,25 +364,30 @@ public class MainActivity extends AppCompatActivity {
         CheckBox gyro_box = findViewById(R.id.gyroCheck);
         CheckBox accel_box = findViewById(R.id.accelCheck);
         CheckBox uncalibrated_box = findViewById(R.id.uncalibratedCheck);
+		CheckBox debug_info_box = findViewById(R.id.debugInfo);
         rectifyImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 				outputImageMat.getNativeObjAddr(), x, y, z, gyro_box.isChecked(),
-                accel_box.isChecked(), uncalibrated_box.isChecked());
+                accel_box.isChecked(), uncalibrated_box.isChecked(), debug_info_box.isChecked());
+		rectified = true;
 		displayCVMatrix(outputImageMat);
 	}
 	public void onTakeImageButton(View view) {
 		//addCalibrationImage();
 
 		if(capturedA && !capturedB) {
+			rectified = false;
 			capturedB = true;
 			rotatedB = false;
 			takePicture(inputImageB.getNativeObjAddr());
 			stopMeasurement();
 		} else if (!capturedA) {
+			rectified = false;
 			capturedA = true;
 			rotatedA = false;
 			takePicture(inputImageA.getNativeObjAddr());
 			startMeasurement();
 		} else {
+			rectified = false;
 			capturedB = false;
 			capturedA = true;
 			rotatedA = false;
@@ -348,6 +398,7 @@ public class MainActivity extends AppCompatActivity {
 	}
 
 	public void onShowBokeh(View view){
+		//inputImageA = Highgui.imread
 		ShowBokehDialog.displayBokehDialog(this,inputImageA,outputImageMat);
 	}
 
@@ -366,15 +417,17 @@ public class MainActivity extends AppCompatActivity {
 	public native void stopMeasurement();
 	public native void rectifyImages(long inputMatA, long inputMatB, long outputMatAddr ,float x
 									,float y, float z, boolean use_gyro, boolean use_accel,
-									 boolean use_uncalibrated);
+									 boolean use_uncalibrated, boolean show_debug_info);
 	public native void addCalibrationImage();
 	public native void calibrate();
 
 	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr,
+									int num_disparities, int block_size, boolean blur,
+									boolean rectified);
 									int num_disparities, int block_size);
 	public native int computeDISP(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size);
 	public native void makeBokehEffect(long rgbImageCV, long disparityImageCV, long outputImage,
-	                              double dFocus, double focalLength);
+	                              float dFocus);
 
 }

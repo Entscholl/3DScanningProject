@@ -5,6 +5,7 @@ bool StereoReconstruction::Camera::distortion_set;
 float StereoReconstruction::Camera::intrinsics[5];
 float StereoReconstruction::Camera::distortion[5];
 
+
 static void on_disconnect(void *context, ACameraDevice *device) {
     LOGI("Camera: %s, is disconnected", ACameraDevice_getId(device));
 }

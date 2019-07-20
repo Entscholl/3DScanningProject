@@ -30,16 +30,20 @@ Java_com_example_stereoreconstruction_MainActivity_stringFromJNI(
 	return env->NewStringUTF(hello.c_str());
 }
 JNIEXPORT jint JNICALL
-Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jobject,
-        jlong addrInputA, jlong addrInputB, jlong addrOutputMat, jint num_disparities,
-        jint block_size) {
+Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jobject instance,
+        jlong inputMatA, jlong inputMatB,
+        jlong outputMatAddr,
+        jint num_disparities,
+        jint block_size,
+        jboolean blur,
+        jboolean rectified) {
     LOGI("Starting Stereo matching with %d disparities and %d blocksize", num_disparities, block_size);
     double start = omp_get_wtime();
 
 
-    cv::Mat *output = reinterpret_cast<cv::Mat*>(addrOutputMat);
-    cv::Mat *inputA = reinterpret_cast<cv::Mat*>(addrInputA);
-    cv::Mat *inputB = reinterpret_cast<cv::Mat*>(addrInputB);
+    cv::Mat *output = reinterpret_cast<cv::Mat*>(outputMatAddr);
+    cv::Mat *inputA = reinterpret_cast<cv::Mat*>(inputMatA);
+    cv::Mat *inputB = reinterpret_cast<cv::Mat*>(inputMatB);
     if(inputA->rows == 0 || inputA->cols == 0 ||
         inputB->rows == 0 || inputB->cols == 0) {
         return -1;
@@ -50,7 +54,10 @@ Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jo
     pipeline.set_block_size(block_size);
     pipeline.set_input_A(inputA);
     pipeline.set_input_B(inputB);
-    pipeline.stereo_match(output);
+    pipeline.stereo_match(output, blur);
+    if(rectified) {
+        pipeline.undo_rectification(output);
+    }
 
 
     double end = omp_get_wtime();
@@ -86,24 +93,28 @@ Java_com_example_stereoreconstruction_MainActivity_computeDISP(JNIEnv *env, jobj
     return 0;
 }
 JNIEXPORT jint JNICALL
-Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jobject,
-                                                                 jlong addrInputA, jlong addrInputB,
-                                                                 jlong addrOutputMat, jfloat x,
-                                                                 jfloat y, jfloat z, jboolean use_gyro,
-                                                                 jboolean use_accel, jboolean use_uncalibrated) {
+Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jobject instance,
+                                                                 jlong inputMatA, jlong inputMatB,
+                                                                 jlong outputMatAddr, jfloat x,
+                                                                 jfloat y, jfloat z,
+                                                                 jboolean use_gyro,
+                                                                 jboolean use_accel,
+                                                                 jboolean use_uncalibrated,
+                                                                 jboolean show_debug_info) {
     LOGI("Starting Image Rectification");
     double start = omp_get_wtime();
-    cv::Mat *output = reinterpret_cast<cv::Mat*>(addrOutputMat);
-    cv::Mat *inputA = reinterpret_cast<cv::Mat*>(addrInputA);
-    cv::Mat *inputB = reinterpret_cast<cv::Mat*>(addrInputB);
+    cv::Mat *output = reinterpret_cast<cv::Mat*>(outputMatAddr);
+    cv::Mat *inputA = reinterpret_cast<cv::Mat*>(inputMatA);
+    cv::Mat *inputB = reinterpret_cast<cv::Mat*>(inputMatB);
+    cv::Mat a_tmp = inputA->clone();
     if(inputA->rows == 0 || inputA->cols == 0 ||
        inputB->rows == 0 || inputB->cols == 0) {
         return -1;
     }
 
     StereoReconstruction::StereoDepthPipeline& pipeline = StereoReconstruction::StereoDepthPipeline::instance();
-    pipeline.set_input_A(inputA);
-    pipeline.set_input_B(inputB);
+    pipeline.set_input_A(&a_tmp );
+    pipeline.set_input_B(inputB );
     cv::Mat cameraMatrix[2], distortion_coefficents[2];
     for(int i = 0; i <2; i++) {
         distortion_coefficents[i] = cv::Mat::zeros(1, 5, CV_64F);
@@ -151,9 +162,9 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
             // f_y
             cameraMatrix[i].at<double>(1, 1) = 1455;
             // c_x
-            cameraMatrix[i].at<double>(0, 2) = inputA->cols/2;
+            cameraMatrix[i].at<double>(0, 2) = inputA->cols/2.;
             // c_y
-            cameraMatrix[i].at<double>(1, 2) = inputA->rows/2;
+            cameraMatrix[i].at<double>(1, 2) = inputA->rows/2.;
             // s
             cameraMatrix[i].at<double>(0, 1) = 0;
             //TODO Actually calibrated values (Those are correct for some devices)
@@ -174,11 +185,15 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
         pipeline.set_translate_vector(cv::Vec3f(x, y, z));
     }
     if(use_uncalibrated) {
-        pipeline.rectify_translation_estimate();
+        pipeline.rectify_translation_estimate(show_debug_info, output);
     } else {
-        pipeline.rectify();
+        //pipeline.rectify();
+        pipeline.rectify_uncalibrated(show_debug_info, output);
     }
-    cv::hconcat(*inputA, *inputB, *output);
+
+    //pipeline.stereo_match(output, true);
+    //pipeline.undo_rectification(output);
+    //cv::Mat out;
 
     double end = omp_get_wtime();
     LOGI("Image Rectifying took: %fs", end-start);
@@ -260,15 +275,13 @@ Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
                                                                    jlong rgbImageCV,
                                                                    jlong disparityImageCV,
                                                                    jlong outputImage,
-                                                                   const double dFocus,
-                                                                   const double aperture) {
+                                                                   const float dFocus) {
 	auto *rgbImg = reinterpret_cast<cv::Mat *>(rgbImageCV);
 	auto *disparityImg = reinterpret_cast<cv::Mat *>(disparityImageCV);
 	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
 
 	BokehEffect bokeh = {*rgbImg, *disparityImg};
-	bokeh.dFocus() = dFocus;
-	bokeh.aperture() = aperture;
+	bokeh.focalLength() = dFocus;
 	bokeh.compute();
 
 	bokeh.outputImage().copyTo(*outputImg);
