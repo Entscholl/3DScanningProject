@@ -184,13 +184,13 @@ public class MainActivity extends AppCompatActivity {
 				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
 			}
 		}
-		//SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
-		//SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
-		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-		//		outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
-		//		blockSizeBar.getProgress()*2 +1);
+		SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
+		SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
 		int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-				outputImageMat.getNativeObjAddr(), 16, 5);
+				outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
+				blockSizeBar.getProgress()*2 +1);
+		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
+		//		outputImageMat.getNativeObjAddr(), 16, 5);
 		if(status == 0) {
 			displayCVMatrix(outputImageMat);
 		} else {
@@ -346,6 +346,11 @@ public class MainActivity extends AppCompatActivity {
 		}
 
 	}
+
+	public void onShowBokeh(View view){
+		ShowBokehDialog.displayBokehDialog(this,inputImageA,outputImageMat);
+	}
+
 	/**
 	 * A native method that is implemented by the 'native-lib' native library,
 	 * which is packaged with this application.
@@ -369,4 +374,7 @@ public class MainActivity extends AppCompatActivity {
 									int num_disparities, int block_size);
 	public native int computeDISP(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size);
+	public native void makeBokehEffect(long rgbImageCV, long disparityImageCV, long outputImage,
+	                              double dFocus, double focalLength);
+
 }

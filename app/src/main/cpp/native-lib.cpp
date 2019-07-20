@@ -13,6 +13,7 @@
 #include "StereoDepthPipeline.h"
 #include "Calibration.h"
 #include "StereoBlockMatching.h"
+#include "BokehEffect.h"
 
 extern "C" {
 
@@ -144,28 +145,15 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
             // s
             cameraMatrix[i].at<double>(0, 1) = StereoReconstruction::Camera::intrinsics[4];
         } else {
-            /*
-            // 640 x 480
-            // f_x
-            cameraMatrix[i].at<double>(0, 0) = 490;
-            // f_y
-            cameraMatrix[i].at<double>(1, 1) = 490;
-            // c_x
-            cameraMatrix[i].at<double>(0, 2) = 247;
-            // c_y
-            cameraMatrix[i].at<double>(1, 2) = 315;
-            // s
-            cameraMatrix[i].at<double>(0, 1) = 0;
-             */
             // 1920 x 1080
             // f_x
             cameraMatrix[i].at<double>(0, 0) = 1455;
             // f_y
             cameraMatrix[i].at<double>(1, 1) = 1455;
             // c_x
-            cameraMatrix[i].at<double>(0, 2) = 560;
+            cameraMatrix[i].at<double>(0, 2) = inputA->cols/2;
             // c_y
-            cameraMatrix[i].at<double>(1, 2) = 960;
+            cameraMatrix[i].at<double>(1, 2) = inputA->rows/2;
             // s
             cameraMatrix[i].at<double>(0, 1) = 0;
             //TODO Actually calibrated values (Those are correct for some devices)
@@ -178,15 +166,15 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
     if(use_gyro) {
         pipeline.set_rotation_matrix(AccelerometerMeasure::rotation);
     } else {
-        pipeline.set_rotation_matrix(cv::Matx33d::eye());
+        pipeline.set_rotation_matrix(cv::Matx33f::eye());
     }
     if(use_accel) {
         pipeline.set_translate_vector(AccelerometerMeasure::translation);
     } else {
-        pipeline.set_translate_vector(cv::Vec3d(x, y, z));
+        pipeline.set_translate_vector(cv::Vec3f(x, y, z));
     }
     if(use_uncalibrated) {
-        pipeline.rectify_uncalibrated();
+        pipeline.rectify_translation_estimate();
     } else {
         pipeline.rectify();
     }
@@ -264,5 +252,25 @@ Java_com_example_stereoreconstruction_MainActivity_takePicture(JNIEnv *env, jobj
     output_mat_addr) {
     cv::Mat *output = reinterpret_cast<cv::Mat*>(output_mat_addr);
 	StereoReconstruction::Camera::take_picture(output);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
+                                                                   jobject ,
+                                                                   jlong rgbImageCV,
+                                                                   jlong disparityImageCV,
+                                                                   jlong outputImage,
+                                                                   const double dFocus,
+                                                                   const double aperture) {
+	auto *rgbImg = reinterpret_cast<cv::Mat *>(rgbImageCV);
+	auto *disparityImg = reinterpret_cast<cv::Mat *>(disparityImageCV);
+	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
+
+	BokehEffect bokeh = {*rgbImg, *disparityImg};
+	bokeh.dFocus() = dFocus;
+	bokeh.aperture() = aperture;
+	bokeh.compute();
+
+	bokeh.outputImage().copyTo(*outputImg);
 }
 }

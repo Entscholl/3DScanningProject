@@ -37,16 +37,27 @@
         app:layout_constraintStart_toStartOf="parent" />
 
     <Button
-        android:id="@+id/CalculateButton"
+        android:id="@+id/showBokeh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
+        android:onClick="onShowBokeh"
+        android:text="Bokeh"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/MeasureButton"
+        app:layout_constraintStart_toEndOf="@+id/CalculateButton" />
+
+    <Button
+        android:id="@+id/CalculateButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginBottom="8dp"
         android:onClick="onCalculateButton"
         android:text="Calculate"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/MeasureButton"
         app:layout_constraintStart_toEndOf="@+id/ImageAButton" />
 
     <Button
@@ -84,7 +95,7 @@
         app:layout_constraintBottom_toTopOf="@+id/CalculateButton"
         app:layout_constraintEnd_toStartOf="@+id/DisplayB"
         app:layout_constraintStart_toEndOf="@+id/DisplayA" />
-    <!--
+    <!-- -->
         <SeekBar
             android:id="@+id/disparitiesBar"
             style="@style/Widget.AppCompat.SeekBar.Discrete"
@@ -96,7 +107,7 @@
             android:max="128"
             android:min="1"
             android:progress="1"
-            app:layout_constraintBottom_toTopOf="@+id/button"
+            app:layout_constraintBottom_toTopOf="@+id/y_val"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -113,7 +124,7 @@
             app:layout_constraintBottom_toTopOf="@+id/disparitiesBar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
-    -->
+    <!-- -->
     <EditText
         android:id="@+id/z_val"
         android:layout_width="wrap_content"
