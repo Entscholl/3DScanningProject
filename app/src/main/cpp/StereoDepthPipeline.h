@@ -29,8 +29,8 @@ namespace StereoReconstruction {
         void stereo_match(cv::Mat *output);
 
         void rectify();
-        void rectify_uncalibrated(bool display_information = false);
-        void rectify_translation_estimate(bool display_information = false);
+        void rectify_uncalibrated(bool display_information = false, cv::Mat* output = nullptr);
+        void rectify_translation_estimate(bool display_information = false, cv::Mat* output = nullptr);
 
         void set_num_disparities(int num_disparities);
         void set_block_size(int block_size);
@@ -57,6 +57,11 @@ namespace StereoReconstruction {
                                        const  cv::Matx33f &rotation,
                                        const cv::Matx33f &camera_matrix_A,
                                        const cv::Matx33f &camera_matrix_B);
+        cv::Matx33f calculate_fundamental_matrix(const cv::Matx33f &R, const cv::Matx33f &K,
+                const cv::Matx33f &K_, const cv::Vec3f &t);
+
+        std::pair<cv::Matx33f, cv::Matx33f> calculate_rectification_matrices(const cv::Matx33f &F);
+        static void log_float_mat(const cv::Mat &mat, const char*);
     public:
         static StereoDepthPipeline& instance() {
             static std::unique_ptr<StereoDepthPipeline> instance(new StereoDepthPipeline);

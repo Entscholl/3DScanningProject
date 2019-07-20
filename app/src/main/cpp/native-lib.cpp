@@ -74,8 +74,8 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
     }
 
     StereoReconstruction::StereoDepthPipeline& pipeline = StereoReconstruction::StereoDepthPipeline::instance();
-    pipeline.set_input_A(inputB);
-    pipeline.set_input_B(inputA );
+    pipeline.set_input_A(inputA );
+    pipeline.set_input_B(inputB );
     cv::Mat cameraMatrix[2], distortion_coefficents[2];
     for(int i = 0; i <2; i++) {
         distortion_coefficents[i] = cv::Mat::zeros(1, 5, CV_64F);
@@ -123,9 +123,9 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
             // f_y
             cameraMatrix[i].at<double>(1, 1) = 1455;
             // c_x
-            cameraMatrix[i].at<double>(0, 2) = inputA->cols/2;
+            cameraMatrix[i].at<double>(0, 2) = inputA->cols/2.;
             // c_y
-            cameraMatrix[i].at<double>(1, 2) = inputA->rows/2;
+            cameraMatrix[i].at<double>(1, 2) = inputA->rows/2.;
             // s
             cameraMatrix[i].at<double>(0, 1) = 0;
             //TODO Actually calibrated values (Those are correct for some devices)
@@ -146,13 +146,13 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
         pipeline.set_translate_vector(cv::Vec3f(x, y, z));
     }
     if(use_uncalibrated) {
-        pipeline.rectify_translation_estimate(show_debug_info);
+        pipeline.rectify_translation_estimate(show_debug_info, output);
     } else {
         //pipeline.rectify();
-        pipeline.rectify_uncalibrated(show_debug_info);
+        pipeline.rectify_uncalibrated(show_debug_info, output);
     }
-    cv::Mat out;
-    cv::hconcat(*inputA, *inputB, out);
+    //cv::Mat out;
+
     double end = omp_get_wtime();
     LOGI("Image Rectifying took: %fs", end-start);
     return 0;

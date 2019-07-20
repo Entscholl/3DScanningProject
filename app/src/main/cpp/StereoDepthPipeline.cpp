@@ -150,7 +150,7 @@ void StereoReconstruction::StereoDepthPipeline::set_num_disparities(int num_disp
     this->num_disparities = num_disparities;
 }
 
-void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool display_information) {
+void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool display_information, cv::Mat* output) {
 
 
     //cv::Mat B_tmp;
@@ -165,7 +165,17 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool displa
 
     cv::Mat F = cv::findFundamentalMat(points_A, points_B, CV_FM_RANSAC, 1, 0.999);
 
+    cv::Mat A_tmp, B_tmp;
+    cv::Mat *A_ptr_tmp, *B_ptr_tmp;
     if(display_information) {
+        if(output != nullptr) {
+            A_tmp = inputA->clone();
+            B_tmp = inputB->clone();
+            A_ptr_tmp = inputA;
+            B_ptr_tmp = inputB;
+            inputA = &A_tmp;
+            inputB = &B_tmp;
+        }
         std::vector<cv::Point3f> linesA;
         cv::computeCorrespondEpilines(points_A, 1, F, linesA);
         std::vector<cv::Point3f> linesB;
@@ -196,6 +206,15 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool displa
         cv::stereoRectifyUncalibrated(points_A, points_B, F, inputA->size(), H1, H2);
         cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
         cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
+        if(output != nullptr) {
+            cv::hconcat(*inputA, *inputB, *output);
+        }
+        if(display_information) {
+            inputA  = A_ptr_tmp;
+            inputB  = B_ptr_tmp;
+            cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
+            cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
+        }
     } catch (std::exception e) {
         LOGE("Could not rectify uncalibrated");
     }
@@ -203,7 +222,7 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool displa
 
 }
 
-void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(bool display_information) {
+void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(bool display_information, cv::Mat* output) {
     //I don't actually know why the transpose (= inverse because rotation) works here
     //cv::Mat B_tmp;
 
@@ -218,13 +237,23 @@ void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(boo
 
     //match_keypoints(A_corners, B_corners, indices,nullptr, nullptr, inputA,&B_tmp );
 
-    translate = estimate_translation(points_A, points_B, rotate.t(), cameraMatrixA,
-            cameraMatrixB);
-    LOGI("Estimated translation: %f, %f, %f", translate(0), translate(1), translate(2));
+    translate = estimate_translation(points_A, points_B, rotate, cameraMatrixA, cameraMatrixB);
     //rectify();
 
-    cv::Matx33f F = cameraMatrixA.inv().t()*rotate*cameraMatrixB.inv();
+
+    cv::Matx33f F = calculate_fundamental_matrix(rotate, cameraMatrixA, cameraMatrixB, translate);
+
+    cv::Mat A_tmp, B_tmp;
+    cv::Mat *A_ptr_tmp, *B_ptr_tmp;
+
     if(display_information) {
+        A_tmp = inputA->clone();
+        B_tmp = inputB->clone();
+        A_ptr_tmp = inputA;
+        B_ptr_tmp = inputB;
+        inputA = &A_tmp;
+        inputB = &B_tmp;
+
         std::vector<cv::Point3f> linesA;
         cv::computeCorrespondEpilines(points_A, 1, F, linesA);
         std::vector<cv::Point3f> linesB;
@@ -249,20 +278,41 @@ void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(boo
         }
     }
 
-    cv::Matx33f transform_x = cv::Matx33f::zeros();
-    transform_x(0,1) = -translate(2);
-    transform_x(0,2) = translate(1);
 
-    transform_x(1,0) = translate(2);
-    transform_x(1,2) = -translate(0);
+    auto [H1, H2] = calculate_rectification_matrices(F);
 
-    transform_x(2,0) = -translate(1);
-    transform_x(2,1) = translate(0);
+    try {
+        cv::Mat H1, H2;
+        cv::stereoRectifyUncalibrated(points_A, points_B, F, inputA->size(), H1, H2);
+        cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
+        cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
+        if(output != nullptr) {
+            cv::hconcat(*inputA, *inputB, *output);
+        }
+        if(display_information) {
+            inputA  = A_ptr_tmp;
+            inputB  = B_ptr_tmp;
+            cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
+            cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
+        }
 
+    } catch (std::exception e) {
+        LOGE("Could not rectify uncalibrated");
+    }
+
+    /*
     cv::warpPerspective(*inputB,*inputB, F,
                         inputB->size(),cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
-
-
+    if(output != nullptr) {
+        cv::hconcat(*inputA, *inputB, *output);
+    }
+    if(display_information) {
+        inputA  = A_ptr_tmp;
+        inputB  = B_ptr_tmp;
+        cv::warpPerspective(*inputB,*inputB, F,
+                            inputB->size(),cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
+    }
+    */
 }
 
 void StereoReconstruction::StereoDepthPipeline::detect_corners(cv::Mat &image,
@@ -360,43 +410,37 @@ void StereoReconstruction::StereoDepthPipeline::match_keypoints(std::vector<cv::
 }
 
 cv::Vec3f
-StereoReconstruction::StereoDepthPipeline::estimate_translation(const std::vector<cv::Point2f> &pointsA,
-                                                                const std::vector<cv::Point2f> &pointsB,
+StereoReconstruction::StereoDepthPipeline::estimate_translation(const std::vector<cv::Point2f> &X,
+                                                                const std::vector<cv::Point2f> &X_,
                                                                 const cv::Matx33f &rotation,
-                                                                const cv::Matx33f &camera_matrix_A,
-                                                                const cv::Matx33f &camera_matrix_B){
+                                                                const cv::Matx33f &K,
+                                                                const cv::Matx33f &K_){
     cv::Vec2f result(0.0f);
     int counts = 0;
-    cv::Matx33f F_tmp = rotation*camera_matrix_B.t();
-    for(int i = 0; i < pointsA.size();i++) {
-        cv::Matx31f x1, x_1;
-        x_1(0) = pointsA[i].x;
-        x1(0) = pointsB[i].x;
-        x_1(1) = pointsA[i].y;
-        x1(1) = pointsB[i].y;
+    cv::Matx33f tmp = K*rotation.t();
+    cv::Matx33f tmp2 = K * rotation * K_.inv();
+    for(int i = 0; i < X.size();i++) {
+        cv::Vec3f x1, x_1;
+        x_1(0) = X[i].x;
+        x1(0) = X_[i].x;
+        x_1(1) = X[i].y;
+        x1(1) = X_[i].y;
         x_1(2) = x1(2) = 1;
-        x_1 = camera_matrix_A.inv()* x_1;
-        x1 = -F_tmp*x1;
-        float f =  x_1(2)*x1(1)-x_1(1)*x1(2);
-        float d =  x_1(0)*x1(1)-x_1(1)*x1(0);
-        f /= d;
-        for(int j = i+1; j < pointsA.size(); j++) {
-            cv::Matx31f x2, x_2;
-            x_2(0) = pointsA[j].x;
-            x2(0) = pointsB[j].x;
-            x_2(1) = pointsA[j].y;
-            x2(1) = pointsB[j].y;
-            x_2(2) = x2(2) = 1;
-            x_2 = camera_matrix_A.inv()* x_2;
-            x2 = -F_tmp*x2;
-
-            float t2 = x_2(2)*x2(1)-x_2(1)*x2(2)+(x_2(1)*x2(0)-x_2(0)*x2(1))*f;
-            float n_ = x_1(0)*x1(2)-x_1(2)*x1(0);
-            float d2 = n_/d;
-            d2 *= x_2(0)*x2(1)-x_2(1)*x2(0);
-            d2 += x_2(2)*x2(0) - x_2(0)* x2(2);
-            t2 /= d2;
-            float t3 = f + n_*t2/d;
+        cv::Matx13f a1 = -((tmp* x_1).cross(x1)).t() * tmp2;
+        for(int j = i+1; j < X.size(); j++) {
+            cv::Vec3f x2, x_2;
+            x_2(0) = X[j].x;
+            x2(0) = X_[j].x;
+            x_2(1) = X[j].y;
+            x2(1) = X_[j].y;
+            x_2(2) = x1(2) = 1;
+            // Solve a_1 dot t  = 0
+            // and   a_2 dot t  = 0
+            // Assuming t_x = 1
+            cv::Matx13f a2 = -((tmp* x_2).cross(x2)).t() * tmp2;
+            float t2 = a1(0)*a2(2)/a1(2)-a2(0);
+            t2 /= (a2(1)-a1(0)*a2(2)/a1(2));
+            float t3 = -(a1(0)+a1(1)*t2)/a1(2);
             //LOGI("candidate: (1.0, %f, %f)", t2, t3);
             if(!(isnan(t3) ||isnan(t2))) {
                 result += cv::Vec2f(t2, t3);
@@ -412,6 +456,9 @@ StereoReconstruction::StereoDepthPipeline::estimate_translation(const std::vecto
     t(0) = 1;
     t(1) = result(0);
     t(2) = result(1);
+    //Assume |t| = 1;
+    t /= sqrt(t.dot(t));
+    LOGI("Estimated translation: (%f, %f, %f)",t(0), t(1), t(2));
     return t;
 }
 
@@ -476,3 +523,71 @@ StereoReconstruction::StereoDepthPipeline::get_matched_features(cv::Mat *image_A
     cv::KeyPoint::convert(key_points_A, points_A, indicesA);
     cv::KeyPoint::convert(key_points_B, points_B, indicesB);
 }
+
+cv::Matx33f
+StereoReconstruction::StereoDepthPipeline::calculate_fundamental_matrix(const cv::Matx33f &R,
+                                                                        const cv::Matx33f &K,
+                                                                        const cv::Matx33f &K_,
+                                                                        const cv::Vec3f &t) {
+
+
+    //cv::Matx33f T = cv::Matx33f::zeros();
+    // Cross product matrix [t]x x p = t x p
+    cv::Matx33f T = { 0.f , -t(2), t(1),
+                      t(2),  0.f ,-t(0),
+                     -t(1),  t(0), 0.f};
+     //Math courtesy of https://sourishghosh.com/2016/fundamental-matrix-from-camera-matrices/
+    return K_.inv().t()*T*R*K.inv();
+}
+
+std::pair<cv::Matx33f, cv::Matx33f>
+StereoReconstruction::StereoDepthPipeline::calculate_rectification_matrices(const cv::Matx33f &F) {
+    cv::Mat S, U, V;
+    cv::SVD::compute(F, S, U, V);
+
+    log_float_mat(U, "U");
+    log_float_mat(V, "V");
+    cv::Matx31f e_= U.col(2);
+    e_ *= 1.f/e_(2);
+    cv::Matx13f e = V.row(2);
+    e *= 1.f/e(2);
+    /*
+    e(2)= 1;
+    e(1) = F(1,2)*F(0,2)/F(0,0) - F(1,2);
+    e(1) /= (F(1,1)- F(1,0)*F(0,1)/F(0,0));
+    e(0) = -F(0,1)*e(1)/F(0,0)-F(0,2)/F(0,0);
+
+    cv::Matx33f F_ = F.t();
+    e_(2)= 1;
+    e_(1) = F_(1,2)*F_(2,2)/F_(2,0) - F_(1,2);
+    e_(1) /= (F_(1,1)- F_(1,0)*F_(2,1)/F_(2,0));
+    e_(0) = -F_(2,1)*e(1)/F_(2,0)-F_(2,2)/F_(2,0);
+
+    */
+    // e = (e_u, e_v, 1)^T
+    LOGI("e: (%f, %f, %f)", e(0), e(1), e(2));
+    // e' = (e'_u, e'_v, 1)^T
+    LOGI("e': (%f, %f, %f)", e_(0), e_(1), e_(2));
+    cv::Matx33f H = {1.F,       0,  0,
+                     -e(1)/e(0), 1.F,  0,
+                     -1.F/e(0),    0,  1.F};
+    cv::Matx33f H_;
+    cv::Matx33f F_ = { 0.F,0,  0,
+                       0,  0, -1,
+                       0,  1,  0};
+    cv::solve(F.inv(),H.inv()*F_.inv(),H_,cv::DECOMP_SVD );
+    //H_ = H_.t();
+
+    return std::make_pair<cv::Matx33f, cv::Matx33f>(std::move(H), std::move(H_));
+}
+
+void StereoReconstruction::StereoDepthPipeline::log_float_mat(const cv::Mat &mat, const char* mat_name) {
+    for(int i = 0; i < mat.rows; i++) {
+        std::stringstream ss;
+        for(int j = 0; j < mat.cols; j++){
+            ss << mat.at<float>(i, j) << " ";
+        }
+        LOGI("%s: %s",mat_name, ss.str().c_str());
+    }
+}
+
