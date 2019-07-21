@@ -43,28 +43,31 @@ void StereoRecons::StereoDisparityPipeline::set_num_disparities(int num_disparit
 void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
 
     constexpr unsigned num_channels = 3;
-    //check if image was read succesfully
-    if (inputA->empty() || inputA->channels() != num_channels) {
-        LOGE("Left Image empty");
-        return;
-    }
-    if (inputA->channels() != num_channels) {
-        LOGE("Left Image wrong amount of channels");
-        return;
-    }
-    if (inputB->empty()) {
-        LOGE("Right Image empty");
-        return;
-    }
-    if (inputB->channels() != num_channels) {
-        LOGE("Right Image wrong amount of channels");
-        return;
-    }
     cv::Mat A;
     cv::Mat B;
     //Try grayscale instead of 3 channels for faster speeds
-    cv::cvtColor(*inputA, A, CV_BGR2GRAY);
-    cv::cvtColor(*inputB, B, CV_BGR2GRAY);
+    A = *inputA;
+    B = *inputB;
+    //cv::cvtColor(*inputA, A, CV_BGR2GRAY);
+    //cv::cvtColor(*inputB, B, CV_BGR2GRAY);
+    //check if image was read succesfully
+    if (A.empty()) {
+        LOGE("Left Image empty");
+        return;
+    }
+    if (A.channels() != num_channels) {
+        LOGE("Left Image wrong amount of channels");
+        return;
+    }
+    if (B.empty()) {
+        LOGE("Right Image empty");
+        return;
+    }
+    if (B.channels() != num_channels) {
+        LOGE("Right Image wrong amount of channels");
+        return;
+    }
+
 
 
     //the disparity range defines how many pixels away from the block's location
@@ -88,8 +91,8 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     //block matching - with SSD calculation
     //from the left image, they go onto the corresponding parts in the right part
     //no epipolar lines ---> needs to be added
-    assert(A.isContinuous());
-    assert(B.isContinuous());
+    assert(inputA->isContinuous());
+    assert(inputB->isContinuous());
 
     double start = omp_get_wtime();
 #pragma omp parallel for schedule(guided)
@@ -120,9 +123,12 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
 
 
                         //Faster than .at, might be because Opencv is maybe not compiled in release
-                        unsigned char l_ = A.data[left_row * width + left_col];
-                        unsigned char r_ = B.data[right_row * width + right_col];
-                        SSD += square(l_ - r_);
+                        unsigned char l_[num_channels];
+                        std::memcpy(l_, A.data+(left_row * width + left_col)*num_channels, num_channels);
+                        unsigned char r_[num_channels];
+                        std::memcpy(r_, B.data+(right_row * width + right_col)*num_channels, num_channels);
+                        for(int c = 0; c < num_channels; c++)
+                            SSD += square(l_[c] - r_[c]);
                         //Exit loop prematurely, did speedup by like 2x
                         if(SSD >= prev_SSD)  {
                             goto end;

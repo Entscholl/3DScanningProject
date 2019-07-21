@@ -41,8 +41,8 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output, bo
 
     cv::cvtColor(*inputA, A, CV_BGR2GRAY);
     cv::cvtColor(*inputB, B, CV_BGR2GRAY);
-    cv::resize(A, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
-    cv::resize(B, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
+    //cv::resize(A, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
+    //cv::resize(B, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
 
     //block_size = 8;
     //num_disparities = 128;
@@ -57,7 +57,7 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output, bo
     if(blur)
         blur_disparity(&temp_result,2.f);
 
-    cv::resize(temp_result, temp_result, cv::Size(), 2, 2);
+    //cv::resize(temp_result, temp_result, cv::Size(), 2, 2);
     temp_result.convertTo(*output, CV_8U);
 
     //call Triangulation(???)

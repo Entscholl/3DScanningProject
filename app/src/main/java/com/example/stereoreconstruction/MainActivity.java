@@ -154,20 +154,20 @@ public class MainActivity extends AppCompatActivity {
 			}
 		});
 
-		Button measureButton = findViewById(R.id.MeasureButton);
-		measureButton.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View view) {
-				if(start)
-				{
-					startMeasurement();
-				}
-				else{
-					stopMeasurement();
-				}
-				start = !start;
-			}
-		});
+		//Button measureButton = findViewById(R.id.MeasureButton);
+		//measureButton.setOnClickListener(new View.OnClickListener() {
+		//	@Override
+		//	public void onClick(View view) {
+		//		if(start)
+		//		{
+		//			startMeasurement();
+		//		}
+		//		else{
+		//			stopMeasurement();
+		//		}
+		//		start = !start;
+		//	}
+		//});
 
 		// Example of a call to a native method
 		//TextView tv = findViewById(R.id.sample_text);
