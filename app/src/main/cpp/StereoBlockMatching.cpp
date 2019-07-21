@@ -161,6 +161,7 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     }
 
     temp_result.convertTo(*output, CV_8U);
+    cv::resize(*output, *output, A.size());
 
     // Forgot the release memory
     delete[] disp;

@@ -32,12 +32,23 @@
         android:id="@+id/showBokeh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="3dp"
+        android:layout_marginEnd="8dp"
         android:layout_marginBottom="8dp"
         android:onClick="onShowBokeh"
         android:text="Bokeh"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/DispMAP" />
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/DispMAP"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:onClick="onDISPButton"
+        android:text="Ours"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/showBokeh" />
 
     <Button
         android:id="@+id/CalculateButton"
@@ -46,7 +57,7 @@
         android:layout_marginStart="8dp"
         android:layout_marginBottom="8dp"
         android:onClick="onCalculateButton"
-        android:text="Calculate"
+        android:text="OpenCV"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/ImageAButton" />
 
@@ -73,6 +84,7 @@
         app:layout_constraintBottom_toTopOf="@+id/CalculateButton"
         app:layout_constraintEnd_toEndOf="parent" />
 
+
     <Button
         android:id="@+id/button"
         android:layout_width="wrap_content"
@@ -85,7 +97,7 @@
         app:layout_constraintBottom_toTopOf="@+id/showBokeh"
         app:layout_constraintEnd_toStartOf="@+id/DisplayB"
         app:layout_constraintStart_toEndOf="@+id/DisplayA" />
-    <!-- -->
+    <!--
         <SeekBar
             android:id="@+id/disparitiesBar"
             style="@style/Widget.AppCompat.SeekBar.Discrete"
@@ -114,7 +126,7 @@
             app:layout_constraintBottom_toTopOf="@+id/disparitiesBar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
-    <!-- -->
+
     <EditText
         android:id="@+id/z_val"
         android:layout_width="wrap_content"
@@ -152,7 +164,7 @@
         android:inputType="numberSigned|numberDecimal"
         app:layout_constraintBottom_toTopOf="@+id/DisplayA"
         app:layout_constraintStart_toStartOf="parent" />
-
+    -->
     <CheckBox
         android:id="@+id/accelCheck"
         android:layout_width="wrap_content"
@@ -162,7 +174,7 @@
         android:text="blur disparity"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-
+    <!--
     <CheckBox
         android:id="@+id/gyroCheck"
         android:layout_width="wrap_content"
@@ -172,6 +184,7 @@
         android:text="use gyro"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/accelCheck" />
+    -->
     <CheckBox
         android:id="@+id/uncalibratedCheck"
         android:layout_width="wrap_content"
@@ -180,7 +193,7 @@
         android:layout_marginTop="8dp"
         android:text="uncalibrated"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/gyroCheck" />
+        app:layout_constraintTop_toBottomOf="@+id/accelCheck" />
     <CheckBox
         android:id="@+id/debugInfo"
         android:layout_width="wrap_content"
@@ -191,16 +204,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/uncalibratedCheck" />
 
-    <Button
-        android:id="@+id/DispMAP"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:onClick="onDISPButton"
-        android:text="dispIMAGE"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -67,7 +67,7 @@ Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jo
 JNIEXPORT jint JNICALL
 Java_com_example_stereoreconstruction_MainActivity_computeDISP(JNIEnv *env, jobject,
                                                                  jlong addrInputA, jlong addrInputB, jlong addrOutputMat, jint num_disparities,
-                                                                 jint block_size){
+                                                                 jint block_size, jboolean rectified){
     LOGI("Starting Stereo block matching with %d disparities and %d blocksize", num_disparities, block_size);
     double start = omp_get_wtime();
 
@@ -86,7 +86,9 @@ Java_com_example_stereoreconstruction_MainActivity_computeDISP(JNIEnv *env, jobj
     pipeline2.set_input_A(inputA);
     pipeline2.set_input_B(inputB);
     pipeline2.block_match(output);
-
+    if(rectified) {
+        StereoReconstruction::StereoDepthPipeline::instance().undo_rectification(output);
+    }
 
     double end = omp_get_wtime();
     LOGI("Image Processing took: %fs", end-start);
@@ -106,14 +108,13 @@ Java_com_example_stereoreconstruction_MainActivity_rectifyImages(JNIEnv *env, jo
     cv::Mat *output = reinterpret_cast<cv::Mat*>(outputMatAddr);
     cv::Mat *inputA = reinterpret_cast<cv::Mat*>(inputMatA);
     cv::Mat *inputB = reinterpret_cast<cv::Mat*>(inputMatB);
-    cv::Mat a_tmp = inputA->clone();
     if(inputA->rows == 0 || inputA->cols == 0 ||
        inputB->rows == 0 || inputB->cols == 0) {
         return -1;
     }
 
     StereoReconstruction::StereoDepthPipeline& pipeline = StereoReconstruction::StereoDepthPipeline::instance();
-    pipeline.set_input_A(&a_tmp );
+    pipeline.set_input_A(inputA );
     pipeline.set_input_B(inputB );
     cv::Mat cameraMatrix[2], distortion_coefficents[2];
     for(int i = 0; i <2; i++) {
@@ -270,12 +271,11 @@ Java_com_example_stereoreconstruction_MainActivity_takePicture(JNIEnv *env, jobj
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *,
-                                                                   jobject ,
+Java_com_example_stereoreconstruction_MainActivity_makeBokehEffect(JNIEnv *env, jobject instance,
                                                                    jlong rgbImageCV,
                                                                    jlong disparityImageCV,
                                                                    jlong outputImage,
-                                                                   const float dFocus) {
+                                                                   jfloat dFocus) {
 	auto *rgbImg = reinterpret_cast<cv::Mat *>(rgbImageCV);
 	auto *disparityImg = reinterpret_cast<cv::Mat *>(disparityImageCV);
 	auto *outputImg = reinterpret_cast<cv::Mat *>(outputImage);
