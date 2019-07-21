@@ -74,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
 						//if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 						//	rotatedA = true;
 						//}
+						Imgproc.resize(inputImageA, inputImageA, new Size(2964, 2000));
 						rotatedA = true;
 						capturedA = true;
 					}
@@ -82,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
 						Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
 						Utils.bitmapToMat(bmB, inputImageB);
 						Imgproc.cvtColor(inputImageB, inputImageB, COLOR_BGRA2BGR );
+						Imgproc.resize(inputImageB, inputImageB, new Size(2964, 2000));
 						//if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 						//	rotatedB = true;
 						//}
@@ -228,14 +230,6 @@ public class MainActivity extends AppCompatActivity {
 	public void onDISPButton(View view) {
 		//calibrate();
 
-		if (!capturedA || !capturedB) {
-			Toast.makeText(context, "No images captured, using defaults" ,
-					Toast.LENGTH_SHORT).show();
-			Bitmap bmA = BitmapFactory.decodeResource(getResources(), R.drawable.im0);
-			Bitmap bmB = BitmapFactory.decodeResource(getResources(), R.drawable.im1);
-			Utils.bitmapToMat(bmA, inputImageA);
-			Utils.bitmapToMat(bmB, inputImageB);
-		}
 
 		if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			if(!rotatedA) {
@@ -246,12 +240,16 @@ public class MainActivity extends AppCompatActivity {
 				rotatedB = true;
 				rotate(inputImageB, inputImageB, ROTATE_90_COUNTERCLOCKWISE);
 			}
+		} else {
+			if(rotatedA) {
+				rotatedA = false;
+				rotate(inputImageA, inputImageA, ROTATE_90_CLOCKWISE);
+			}
+			if(rotatedB) {
+				rotatedB = false;
+				rotate(inputImageB, inputImageB, ROTATE_90_CLOCKWISE);
+			}
 		}
-		//SeekBar disparitiesBar = findViewById(R.id.disparitiesBar);
-		//SeekBar blockSizeBar =  findViewById(R.id.blockSizeBar);
-		//int status  = processImages(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-		//		outputImageMat.getNativeObjAddr(), disparitiesBar.getProgress()* 16,
-		//		blockSizeBar.getProgress()*2 +1);
 		int status  = computeDISP(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
 				outputImageMat.getNativeObjAddr(), 100, 4);
 		if(status == 0) {
@@ -424,7 +422,6 @@ public class MainActivity extends AppCompatActivity {
 	public native int processImages(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size, boolean blur,
 									boolean rectified);
-									int num_disparities, int block_size);
 	public native int computeDISP(long inputMatA, long inputMatB, long outputMatAddr,
 									int num_disparities, int block_size);
 	public native void makeBokehEffect(long rgbImageCV, long disparityImageCV, long outputImage,

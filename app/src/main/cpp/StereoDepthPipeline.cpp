@@ -1,6 +1,7 @@
 #include <opencv2/calib3d/calib3d_c.h>
 #include <omp.h>
 #include "StereoDepthPipeline.h"
+#include "StereoBlockMatching.h"
 #include "StdHeader.h"
 
 StereoReconstruction::StereoDepthPipeline::StereoDepthPipeline() {
@@ -38,50 +39,25 @@ void StereoReconstruction::StereoDepthPipeline::stereo_match(cv::Mat *output, bo
 
     // StereoBM wants one channel
 
-    //num_disparities /= 2;
-    //if(num_disparities%16)
-    //    num_disparities += 16-(num_disparities%16);
-    //cv::resize(*inputA, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
-    //cv::resize(*inputB, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
     cv::cvtColor(*inputA, A, CV_BGR2GRAY);
     cv::cvtColor(*inputB, B, CV_BGR2GRAY);
     cv::resize(A, A, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
     cv::resize(B, B, cv::Size(), 0.5, 0.5, cv::INTER_LINEAR_EXACT);
 
-    block_size = 8;
-    num_disparities = 128;
+    //block_size = 8;
+    //num_disparities = 128;
     //auto stereo_block_matcher = cv::StereoSGBM::create(0, num_disparities, block_size);
     //num disparities 240
     //block size 1
     auto stereo_block_matcher = cv::StereoSGBM::create(0,    //int minDisparity
-                                                              96,     //int numDisparities
-                                                              7);//bool fullDP = false
-    //auto stereo_block_matcher = cv::StereoBM::create(128, 11);//bool fullDP = false
-    //stereo_block_matcher->setNumDisparities(num_disparities);
-    //stereo_block_matcher->setBlockSize(block_size);
-
-    /*
-    stereo_block_matcher->setP1(8*3*block_size*block_size);
-    stereo_block_matcher->setP2(32*3*block_size*block_size);
-    */
-    /*
-    stereo_block_matcher->setPreFilterCap(31);
-    stereo_block_matcher->setUniquenessRatio(15);
-    //stereo_block_matcher->setTextureThreshold(10);
-    stereo_block_matcher->setSpeckleRange(32);
-    stereo_block_matcher->setDisp12MaxDiff(1);
-    stereo_block_matcher->setSpeckleWindowSize(100);
-    stereo_block_matcher->setMinDisparity(0);
-    */
+                                                              240,     //int numDisparities
+                                                              10);//bool fullDP = false
     stereo_block_matcher->compute(A, B, temp_result );
 
-    //cv::normalize(temp_result, *output, 0, 255, cv::NORM_MINMAX, CV_8U, cv::Mat());
-    //cv::Mat dmap = temp_result * (1.0 / 16.0f);
-    //temp_result *= (1.0 / 16.0f);
     if(blur)
         blur_disparity(&temp_result,2.f);
 
-    //cv::resize(temp_result, temp_result, cv::Size(), 2, 2);
+    cv::resize(temp_result, temp_result, cv::Size(), 2, 2);
     temp_result.convertTo(*output, CV_8U);
 
     //call Triangulation(???)

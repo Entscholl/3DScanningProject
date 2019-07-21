@@ -7,15 +7,18 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/calib3d/calib3d_c.h>
+#include <omp.h>
+
 
 #include "StdHeader.h"
 
 using namespace cv;
 using namespace std;
 
-inline int square(int x)
+constexpr int square(int x)
 {
-    return pow(x, 2);
+    //Depending on the compiler pow could result in horrible performance
+    return x*x;
 }
 
 StereoRecons::StereoDisparityPipeline::StereoDisparityPipeline() {
@@ -39,29 +42,29 @@ void StereoRecons::StereoDisparityPipeline::set_num_disparities(int num_disparit
 
 void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
 
-
-
-    cv::Mat left, right;
-    left = *inputA;
-    right = *inputB;
-
+    constexpr unsigned num_channels = 3;
     //check if image was read succesfully
-    if (left.empty()) {
-        cout << "Left image cannot be read" << std::endl;
+    if (inputA->empty() || inputA->channels() != num_channels) {
+        LOGE("Left Image empty");
+        return;
     }
-    if (right.empty()) {
-        cout << "Right image cannot be read" << std::endl;
+    if (inputA->channels() != num_channels) {
+        LOGE("Left Image wrong amount of channels");
+        return;
     }
-    //imshow("window", right);
-    //imshow("window2", left);
-    //waitKey(0);
-
-
-    float col = 300;
-    float row = 200;
-
-    resize(left, left, Size(col, row));
-    resize(right, right, Size(col, row));
+    if (inputB->empty()) {
+        LOGE("Right Image empty");
+        return;
+    }
+    if (inputB->channels() != num_channels) {
+        LOGE("Right Image wrong amount of channels");
+        return;
+    }
+    cv::Mat A;
+    cv::Mat B;
+    //Try grayscale instead of 3 channels for faster speeds
+    cv::cvtColor(*inputA, A, CV_BGR2GRAY);
+    cv::cvtColor(*inputB, B, CV_BGR2GRAY);
 
 
     //the disparity range defines how many pixels away from the block's location
@@ -73,91 +76,91 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     //the size of the blocks for block matching
     int halfBlockSize = block_size/2;
 
-    //int blockSize = 2 * halfBlockSize + 1;
-
     //get left image's size
-    int ROW = left.rows;
-    int COL = left.cols;
-
-    //int ROW = 50, COL = 50;
+    const int width = inputA->size().width;
+    const int height = inputA->size().height;
 
     // store the disparity and sum of squared distance (SSD)
+    // Continous Memory Layout, might cause Cache improvements
+    auto *disp = new short[height*width];
+    auto *SSD_value = new unsigned[height*width];
 
-    int** disp = new int*[ROW];
-    for (int i = 0; i < ROW; ++i)
-        disp[i] = new int[COL];
-
-    int** SSD_value = new int*[ROW];
-    for (int i = 0; i < ROW; ++i)
-        SSD_value[i] = new int[COL];
-
-    for (int i = 0; i < ROW; i++)
-    {
-        for (int j = 0; j < COL; j++)
-        {
-            disp[i][j] = 0;
-            SSD_value[i][j] = 10e8;
-        }
-    }
     //block matching - with SSD calculation
     //from the left image, they go onto the corresponding parts in the right part
     //no epipolar lines ---> needs to be added
+    assert(A.isContinuous());
+    assert(B.isContinuous());
 
-    int SSD = 0, left_row, left_col, right_row, right_col;
-
-    for (int i = 0 + halfBlockSize; i < left.rows - halfBlockSize; i++)
+    double start = omp_get_wtime();
+#pragma omp parallel for schedule(guided)
+    for (int i = 0 + halfBlockSize; i < height - halfBlockSize; i++)
     {
-        for (int j = 0 + halfBlockSize; j < left.cols - halfBlockSize; j++)
+        for (int j = 0 + halfBlockSize; j < width - halfBlockSize; j++)
         {
-
+            // These values are inside the loop, thus OMP will NOT try to
+            // synchronize them which can cause serious performance implications
+            unsigned prev_SSD = 0U - 1U;
+            short prev_disp = 0;
             for (int range = disparityMIN; range <= disparityMAX; range++)
             {
-                SSD = 0;
+                unsigned SSD = 0;
 
-                for (left_row = -halfBlockSize + i; left_row <= halfBlockSize + i; left_row++)
+                for (int left_row = -halfBlockSize + i; left_row <= halfBlockSize + i; left_row++)
                 {
-                    for (left_col = -halfBlockSize + j; left_col <= halfBlockSize + j; left_col++)
+                    for (int left_col = -halfBlockSize + j; left_col <= halfBlockSize + j; left_col++)
                     {
-                        right_row = left_row;
-                        right_col = left_col + range;
 
-                        SSD += square(left.at<cv::Vec3b>(left_row, left_col)[0] - right.at<cv::Vec3b>(right_row, min(max(0, right_col), COL - 1))[0]);
-                        +square(left.at<cv::Vec3b>(left_row, left_col)[1] - right.at<cv::Vec3b>(right_row, min(max(0, right_col), COL - 1))[1])
-                        + square(left.at<cv::Vec3b>(left_row, left_col)[2] - right.at<cv::Vec3b>(right_row, min(max(0, right_col), COL - 1))[2]);
+                        int right_row = left_row;
+                        int right_col = std::clamp(left_col + range, 0, width - 1);
+                        //cv::Vec3b l_ = A.at<unsigned char>(left_row, left_col);
+                        //cv::Vec3b r_ = B.at<unsigned char>(right_row, std::clamp(right_col, 0, width - 1));
+                        //unsigned char l_ = A.at<unsigned char>(left_row, left_col);
+                        //unsigned char r_ = B.at<unsigned char>(right_row, std::clamp(right_col, 0, width - 1));
+                        //SSD += square(l_[0] - r_[0]) +square(l_[1] - r_[1]) + square(l_[2] - r_[2]);
+
+
+                        //Faster than .at, might be because Opencv is maybe not compiled in release
+                        unsigned char l_ = A.data[left_row * width + left_col];
+                        unsigned char r_ = B.data[right_row * width + right_col];
+                        SSD += square(l_ - r_);
+                        //Exit loop prematurely, did speedup by like 2x
+                        if(SSD >= prev_SSD)  {
+                            goto end;
+                        }
                     }
                 }
 
-                if (SSD < SSD_value[i][j])
+                if (SSD < prev_SSD)
                 {
-                    disp[i][j] = range;
-                    //cout << disp[i][j] << endl;
-                    SSD_value[i][j] = SSD;
-                }
-
+                    prev_disp = range;
+                    prev_SSD = SSD;
+                }end:;
             }
-
+            SSD_value[i*width+j] = prev_SSD;
+            disp[i*width+j] = prev_disp;
         }
-
+        //double end = omp_get_wtime();
+        //LOGI("Stereo matching row (%d), thread (%d) took: %fs", i, omp_get_thread_num(), end - start);
     }
+    double end = omp_get_wtime();
+    LOGI("Stereo matching took: %fs", end - start);
 
     //construct disparity image
-    Mat dispIMG = Mat::zeros(ROW, COL, CV_8UC1);
-
-    for (int i = 0; i < ROW; i++)
+    //Mat dispIMG = Mat::zeros(ROW, COL, CV_8UC1);
+    //cv::resize(*output, *output,inputA->size());
+    cv::Mat temp_result(inputA->size(), CV_8UC1);
+//#pragma omp parallel for schedule(guided)
+    for (int i = 0; i < height; i++)
     {
-        for (int j = 0; j < COL; j++)
+        for (int j = 0; j < width; j++)
         {
-            dispIMG.at<uchar>(i, j) = 63 + (int)192.0 * (disp[i][j] - disparityMIN) / disparityRANGE;
+            temp_result.data[i*width + j] = static_cast<uchar>(63 + (int)192.0 * (disp[i*width+j] - disparityMIN) / disparityRANGE);
         }
     }
-    float a = 1500;
-    float b = 1000;
-    resize(dispIMG, dispIMG, Size(a, b));
 
-    imshow("disparity", dispIMG);
-    waitKey(0);
-    //imwrite("dispariy.jpg", dispIMG);
-    //system("pause");
+    temp_result.convertTo(*output, CV_8U);
 
-
+    // Forgot the release memory
+    delete[] disp;
+    delete[] SSD_value;
 }
