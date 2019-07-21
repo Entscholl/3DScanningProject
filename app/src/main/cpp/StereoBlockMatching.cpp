@@ -43,11 +43,13 @@ void StereoRecons::StereoDisparityPipeline::set_num_disparities(int num_disparit
 void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
 
     constexpr unsigned num_channels = 3;
-    cv::Mat A;
-    cv::Mat B;
+    cv::Mat A(600, 900, CV_8UC3);
+    cv::Mat B(600, 900, CV_8UC3);
     //Try grayscale instead of 3 channels for faster speeds
-    A = *inputA;
-    B = *inputB;
+    //A = *inputA;
+    //B = *inputB;
+    cv::resize(*inputA, A, cv::Size(900, 600));
+    cv::resize(*inputB, B, cv::Size(900, 600));
     //cv::cvtColor(*inputA, A, CV_BGR2GRAY);
     //cv::cvtColor(*inputB, B, CV_BGR2GRAY);
     //check if image was read succesfully
@@ -80,8 +82,8 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     int halfBlockSize = block_size/2;
 
     //get left image's size
-    const int width = inputA->size().width;
-    const int height = inputA->size().height;
+    const int width = A.size().width;
+    const int height = A.size().height;
 
     // store the disparity and sum of squared distance (SSD)
     // Continous Memory Layout, might cause Cache improvements
@@ -115,20 +117,14 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
 
                         int right_row = left_row;
                         int right_col = std::clamp(left_col + range, 0, width - 1);
-                        //cv::Vec3b l_ = A.at<unsigned char>(left_row, left_col);
-                        //cv::Vec3b r_ = B.at<unsigned char>(right_row, std::clamp(right_col, 0, width - 1));
-                        //unsigned char l_ = A.at<unsigned char>(left_row, left_col);
-                        //unsigned char r_ = B.at<unsigned char>(right_row, std::clamp(right_col, 0, width - 1));
-                        //SSD += square(l_[0] - r_[0]) +square(l_[1] - r_[1]) + square(l_[2] - r_[2]);
 
-
-                        //Faster than .at, might be because Opencv is maybe not compiled in release
                         unsigned char l_[num_channels];
-                        std::memcpy(l_, A.data+(left_row * width + left_col)*num_channels, num_channels);
                         unsigned char r_[num_channels];
+                        //Faster than .at, might be because Opencv is maybe not compiled in release
+                        std::memcpy(l_, A.data+(left_row * width + left_col)*num_channels, num_channels);
                         std::memcpy(r_, B.data+(right_row * width + right_col)*num_channels, num_channels);
                         for(int c = 0; c < num_channels; c++)
-                            SSD += square(l_[c] - r_[c]);
+                            SSD += square(((short)l_[c]) - r_[c]);
                         //Exit loop prematurely, did speedup by like 2x
                         if(SSD >= prev_SSD)  {
                             goto end;
@@ -154,7 +150,7 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     //construct disparity image
     //Mat dispIMG = Mat::zeros(ROW, COL, CV_8UC1);
     //cv::resize(*output, *output,inputA->size());
-    cv::Mat temp_result(inputA->size(), CV_8UC1);
+    cv::Mat temp_result(A.size(), CV_8UC1);
 //#pragma omp parallel for schedule(guided)
     for (int i = 0; i < height; i++)
     {
