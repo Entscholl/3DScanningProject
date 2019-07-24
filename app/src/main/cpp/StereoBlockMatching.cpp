@@ -96,6 +96,8 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     assert(inputA->isContinuous());
     assert(inputB->isContinuous());
 
+    cv::Mat temp_result(A.size(), CV_8UC1);
+
     double start = omp_get_wtime();
 #pragma omp parallel for schedule(guided)
     for (int i = 0 + halfBlockSize; i < height - halfBlockSize; i++)
@@ -149,27 +151,12 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
                     prev_SSD = SSD;
                 }end:;
             }
-            //SSD_value[i*width+j] = prev_SSD;
-            disp[i*width+j] = prev_disp;
+            temp_result.data[i*width + j] = static_cast<uchar>(63 + (int)192.0 * (prev_disp - disparityMIN) / disparityRANGE);
         }
-        //double end = omp_get_wtime();
-        //LOGI("Stereo matching row (%d), thread (%d) took: %fs", i, omp_get_thread_num(), end - start);
     }
     double end = omp_get_wtime();
     LOGI("Stereo matching took: %fs", end - start);
 
-    //construct disparity image
-    //Mat dispIMG = Mat::zeros(ROW, COL, CV_8UC1);
-    //cv::resize(*output, *output,inputA->size());
-    cv::Mat temp_result(A.size(), CV_8UC1);
-//#pragma omp parallel for schedule(guided)
-    for (int i = 0; i < height; i++)
-    {
-        for (int j = 0; j < width; j++)
-        {
-            temp_result.data[i*width + j] = static_cast<uchar>(63 + (int)192.0 * (disp[i*width+j] - disparityMIN) / disparityRANGE);
-        }
-    }
 
     temp_result.convertTo(*output, CV_8U);
     cv::resize(*output, *output, inputA->size());
