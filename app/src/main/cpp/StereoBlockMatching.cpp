@@ -42,7 +42,7 @@ void StereoRecons::StereoDisparityPipeline::set_num_disparities(int num_disparit
 
 void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
 
-    constexpr unsigned num_channels = 3;
+    constexpr unsigned num_channels = 1;
     cv::Mat A(600, 900, CV_8UC3);
     cv::Mat B(600, 900, CV_8UC3);
     //Try grayscale instead of 3 channels for faster speeds
@@ -50,8 +50,8 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     //B = *inputB;
     cv::resize(*inputA, A, cv::Size(900, 600));
     cv::resize(*inputB, B, cv::Size(900, 600));
-    //cv::cvtColor(*inputA, A, CV_BGR2GRAY);
-    //cv::cvtColor(*inputB, B, CV_BGR2GRAY);
+    cv::cvtColor(A, A, CV_BGR2GRAY);
+    cv::cvtColor(B, B, CV_BGR2GRAY);
     //check if image was read succesfully
     if (A.empty()) {
         LOGE("Left Image empty");
@@ -88,7 +88,7 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     // store the disparity and sum of squared distance (SSD)
     // Continous Memory Layout, might cause Cache improvements
     auto *disp = new short[height*width];
-    auto *SSD_value = new unsigned[height*width];
+    //auto *SSD_value = new unsigned[height*width];
 
     //block matching - with SSD calculation
     //from the left image, they go onto the corresponding parts in the right part
@@ -106,10 +106,10 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
             // synchronize them which can cause serious performance implications
             unsigned prev_SSD = 0U - 1U;
             short prev_disp = 0;
-            for (int range = disparityMIN; range <= disparityMAX; range++)
+            for (short range = static_cast<short>(disparityMIN); range <= disparityMAX; range++)
             {
-                unsigned SSD = 0;
-
+                unsigned short SSD = 0;
+                //uint16x8_t SSDs = vcreate_u16(0x0);
                 for (int left_row = -halfBlockSize + i; left_row <= halfBlockSize + i; left_row++)
                 {
                     for (int left_col = -halfBlockSize + j; left_col <= halfBlockSize + j; left_col++)
@@ -118,17 +118,28 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
                         int right_row = left_row;
                         int right_col = std::clamp(left_col + range, 0, width - 1);
 
+                        uint8_t *A_ptr = A.data+(left_row * width + left_col)*num_channels;
+                        uint8_t *B_ptr = B.data+(right_row * width + right_col)*num_channels;
+                        /*
+                        uint8x8_t l_v = vld1q_dup_u8(A_ptr);
+                        uint8x8_t r_v = vld1_u8(B_ptr);
+
+                        uint8x8_t diff = vabd_u8(l_v, r_v);
+
+                        SSDs = vmlal_u8(SSDs,diff, diff);
+                        */
                         unsigned char l_[num_channels];
                         unsigned char r_[num_channels];
                         //Faster than .at, might be because Opencv is maybe not compiled in release
-                        std::memcpy(l_, A.data+(left_row * width + left_col)*num_channels, num_channels);
-                        std::memcpy(r_, B.data+(right_row * width + right_col)*num_channels, num_channels);
+                        std::memcpy(l_, A_ptr, num_channels);
+                        std::memcpy(r_, B_ptr, num_channels);
                         for(int c = 0; c < num_channels; c++)
                             SSD += square(((short)l_[c]) - r_[c]);
                         //Exit loop prematurely, did speedup by like 2x
                         if(SSD >= prev_SSD)  {
                             goto end;
                         }
+
                     }
                 }
 
@@ -138,7 +149,7 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
                     prev_SSD = SSD;
                 }end:;
             }
-            SSD_value[i*width+j] = prev_SSD;
+            //SSD_value[i*width+j] = prev_SSD;
             disp[i*width+j] = prev_disp;
         }
         //double end = omp_get_wtime();
@@ -161,9 +172,9 @@ void StereoRecons::StereoDisparityPipeline::block_match(cv::Mat *output){
     }
 
     temp_result.convertTo(*output, CV_8U);
-    cv::resize(*output, *output, A.size());
+    cv::resize(*output, *output, inputA->size());
 
     // Forgot the release memory
     delete[] disp;
-    delete[] SSD_value;
+    //delete[] SSD_value;
 }
