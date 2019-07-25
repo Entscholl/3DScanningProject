@@ -273,12 +273,13 @@ public class MainActivity extends AppCompatActivity {
 			}
 		}
 		int status = 0;
+		CheckBox accel_box = findViewById(R.id.accelCheck);
 		if(rectified) {
 			status  = computeDISP(rectifiedImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-					outputImageMat.getNativeObjAddr(), 100, 4, true);
+					outputImageMat.getNativeObjAddr(), 70, 8, accel_box.isChecked(), true);
 		}else {
 			status = computeDISP(inputImageA.getNativeObjAddr(), inputImageB.getNativeObjAddr(),
-					outputImageMat.getNativeObjAddr(), 100, 4, false);
+					outputImageMat.getNativeObjAddr(), 70, 8, accel_box.isChecked(), false );
 		}
 		if(status == 0) {
 			displayCVMatrix(outputImageMat);
@@ -458,7 +459,7 @@ public class MainActivity extends AppCompatActivity {
 									int num_disparities, int block_size, boolean blur,
 									boolean rectified);
 	public native int computeDISP(long inputMatA, long inputMatB, long outputMatAddr,
-									int num_disparities, int block_size, boolean rectified);
+									int num_disparities, int block_size, boolean blur,boolean rectified);
 	public native void makeBokehEffect(long rgbImageCV, long disparityImageCV, long outputImage,
 	                              float dFocus);
 

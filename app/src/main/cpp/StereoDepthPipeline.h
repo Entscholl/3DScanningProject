@@ -62,7 +62,9 @@ namespace StereoReconstruction {
         cv::Matx33f calculate_fundamental_matrix(const cv::Matx33f &R, const cv::Matx33f &K,
                 const cv::Matx33f &K_, const cv::Vec3f &t);
 
-        std::pair<cv::Matx33f, cv::Matx33f> calculate_rectification_matrices(const cv::Matx33f &F);
+        std::optional<std::pair<cv::Matx33f, cv::Matx33f>> calculate_rectification_matrices(const cv::Matx33f &F,
+                const std::vector<cv::Point2f> &pointsA, const std::vector<cv::Point2f> &pointsB,
+                cv::Size &size);
         static void log_float_mat(const cv::Mat &mat, const char*);
     public:
         static StereoDepthPipeline& instance() {

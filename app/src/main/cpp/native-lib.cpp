@@ -67,7 +67,7 @@ Java_com_example_stereoreconstruction_MainActivity_processImages(JNIEnv *env, jo
 JNIEXPORT jint JNICALL
 Java_com_example_stereoreconstruction_MainActivity_computeDISP(JNIEnv *env, jobject,
                                                                  jlong addrInputA, jlong addrInputB, jlong addrOutputMat, jint num_disparities,
-                                                                 jint block_size, jboolean rectified){
+                                                                 jint block_size, jboolean blur, jboolean rectified){
     LOGI("Starting Stereo block matching with %d disparities and %d blocksize", num_disparities, block_size);
     double start = omp_get_wtime();
 
@@ -85,7 +85,7 @@ Java_com_example_stereoreconstruction_MainActivity_computeDISP(JNIEnv *env, jobj
     pipeline2.set_block_size(block_size);
     pipeline2.set_input_A(inputA);
     pipeline2.set_input_B(inputB);
-    pipeline2.block_match(output);
+    pipeline2.block_match(output, blur);
     if(rectified) {
         StereoReconstruction::StereoDepthPipeline::instance().undo_rectification(output);
     }

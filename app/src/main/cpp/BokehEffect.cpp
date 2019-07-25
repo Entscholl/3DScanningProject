@@ -89,6 +89,9 @@ void BokehEffect::compute() {
 		}
 	}*/
 
+	constexpr unsigned num_channels = 3;
+	assert(_rgbInput.isContinuous());
+	assert(_rgbInput.channels() == num_channels);
 	cv::Mat outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
 	LOGI("focal length: %f", _focalLength);
     //GaussianBlurBackup
@@ -102,7 +105,7 @@ void BokehEffect::compute() {
 					std::min(5.f + 5 * (-(float) depth * (float) _focalLength) / 128.0f, 5.f), 0.f);
 			const float stddev = depthScale;
 			const int radius = (int) std::floor(stddev * 3);
-			cv::Vec3b outPixel = {0, 0, 0};
+			unsigned short out_pixel[num_channels] = {0, 0, 0};
 			if (radius < 1) {
 				outputImage.at<cv::Vec3b>(x, y) = _rgbInput.at<cv::Vec3b>(x, y);
 				continue;
@@ -110,6 +113,10 @@ void BokehEffect::compute() {
 			float first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
 			for (unsigned int i = std::max<unsigned int>(x - radius, 0);
 			     i <= std::min<int>(x + radius, _rgbInput.rows - 1); ++i) {
+				uint8_t *pixel_ptr = _rgbInput.data+(i * outputImage.cols + y)*num_channels;
+				unsigned char in_pixel[num_channels];
+				//Faster than .at, might be because Opencv is maybe not compiled in release
+				std::memcpy(in_pixel, pixel_ptr, num_channels);
 
 				const auto inPixel = _rgbInput.at<cv::Vec3b>(i, y);
 				//double g = first_term * std::exp(-(((i - x) * (i - x)) / (2 * stddev * stddev)));
@@ -117,14 +124,18 @@ void BokehEffect::compute() {
 				if (g > 1) {
 					g = 1;
 				}
-				outPixel += g * inPixel;
+				for(int k = 0; k < num_channels; k++)
+					out_pixel[k] += g*in_pixel[k];
 
 			}
-			outputImage.at<cv::Vec3b>(x, y) = outPixel;
+			uint8_t *pixel_ptr = outputImage.data+(x  * outputImage.cols + y)*num_channels;
+			for(int k = 0; k < num_channels; k++)
+				*(pixel_ptr+k) = (uint8_t) std::min(out_pixel[k], (unsigned short)255);
 		}
 		//LOGI("x: %i", x);
 	}
 	_outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
+
     #pragma omp parallel for schedule(guided)
 	for (int x = 0; x < outputImage.rows; ++x) {
 		for (int y = 0; y < outputImage.cols; ++y) {
@@ -138,21 +149,28 @@ void BokehEffect::compute() {
 				_outputImage.at<cv::Vec3b>(x, y) = _rgbInput.at<cv::Vec3b>(x, y);
 				continue;
 			}
-			cv::Vec3b outPixel = {0, 0, 0};
+			unsigned short out_pixel[num_channels] = {0, 0, 0};
 			float first_term = (1.f / sqrt(2 * 3.1415f * stddev * stddev));
 			for (unsigned int j = std::max<unsigned int>(y - radius, 0);
 			     j <= std::min<int>(y + radius, _rgbInput.cols - 1); ++j) {
+				uint8_t *pixel_ptr = outputImage.data+(x * outputImage.cols + j)*num_channels;
+				unsigned char in_pixel[num_channels];
+				//Faster than .at, might be because Opencv is maybe not compiled in release
+				std::memcpy(in_pixel, pixel_ptr, num_channels);
 
-				const auto inPixel = outputImage.at<cv::Vec3b>(x, j);
+				//const auto inPixel = outputImage.at<cv::Vec3b>(x, j);
 				float g = first_term * std::exp(-(((j - y) * (j - y)) / (2 * stddev * stddev)));
 				if (g > 1) {
 					g = 1;
 				}
-				outPixel += g * inPixel;
+				for(int k = 0; k < num_channels; k++)
+					out_pixel[k] += g*in_pixel[k];
 
 
-				_outputImage.at<cv::Vec3b>(x, y) = outPixel;
 			}
+			uint8_t *pixel_ptr = _outputImage.data+(x  * _outputImage.cols + y)*num_channels;
+			for(int k = 0; k < num_channels; k++)
+				*(pixel_ptr+k) = (uint8_t) std::min(out_pixel[k], (unsigned short)255);
 		}
 		//LOGI("x: %i", x);
 	}

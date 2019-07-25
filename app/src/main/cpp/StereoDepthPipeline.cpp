@@ -148,7 +148,7 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool displa
 
     get_matched_features(inputA, inputB, points_A, points_B);
 
-    cv::Mat F = cv::findFundamentalMat(points_A, points_B, CV_FM_RANSAC, 1, 0.999);
+    cv::Matx33f F = cv::findFundamentalMat(points_A, points_B, CV_FM_RANSAC, 1, 0.999);
 
     cv::Mat A_tmp, B_tmp;
     cv::Mat *A_ptr_tmp, *B_ptr_tmp;
@@ -185,25 +185,35 @@ void StereoReconstruction::StereoDepthPipeline::rectify_uncalibrated(bool displa
         }
     }
     //cv::drawMatches(*inputA, key_points_A, *inputB, key_points_B, matches, *output);
+    cv::Size new_size;
+    auto res = calculate_rectification_matrices(F, points_A, points_B, new_size);
+    if(!res) return;
+    auto [H1, H2] = *res;
+    if(new_size.width <= 0 ||new_size.height <= 0
+            //     || new_size.width <= inputA->size().width || new_size.height <= inputA->size().height)
+            ||new_size.width > 4000|| new_size.height > 4000)
+        new_size = inputA->size();
+    H = H1;
+    H_ = H2;
 
-    cv::Mat H1, H2;
-    try {
-        cv::stereoRectifyUncalibrated(points_A, points_B, F, inputA->size(), H1, H2);
-        H = H1;
-        H_ = H2;
-        cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
-        cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
-        if(output != nullptr) {
-            cv::hconcat(*inputA, *inputB, *output);
-        }
-        if(display_information) {
-            inputA  = A_ptr_tmp;
-            inputB  = B_ptr_tmp;
-            cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
-            cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
-        }
-    } catch (std::exception e) {
-        LOGE("Could not rectify uncalibrated");
+
+    cv::Mat tmpA = inputA->clone();
+    cv::Mat tmpB = inputB->clone();
+    cv::resize(tmpA, tmpA, new_size);
+    cv::resize(tmpB, tmpB, new_size);
+    cv::warpPerspective(tmpA, *inputA, H1, new_size);
+    //cv::warpPerspective(tmp, *inputB, H1, inputA->size(),  cv::WARP_INVERSE_MAP);
+    cv::warpPerspective(tmpB, *inputB, H2, new_size);
+    H = H1;
+    H_ = H2;
+    if(output != nullptr) {
+        cv::hconcat(*inputA, *inputB, *output);
+    }
+    if(display_information) {
+        inputA  = A_ptr_tmp;
+        inputB  = B_ptr_tmp;
+        cv::warpPerspective(tmpB, *inputA, H1, new_size);
+        cv::warpPerspective(tmpB, *inputB, H2, new_size);
     }
 
 
@@ -264,67 +274,36 @@ void StereoReconstruction::StereoDepthPipeline::rectify_translation_estimate(boo
             cv::line(*inputB, pt0, pt1, cv::Scalar(0, 125, 255));
         }
     }
+    cv::Size new_size;
+    auto res = calculate_rectification_matrices(F, points_A, points_B, new_size);
+    if(!res) return;
+    auto [H1, H2] = *res;
+    if(new_size.width <= 0 ||new_size.height <= 0
+//     || new_size.width <= inputA->size().width || new_size.height <= inputA->size().height)
+ ||new_size.width > 4000|| new_size.height > 4000)
+        new_size = inputA->size();
+    H = H1;
+    H_ = H2;
 
 
-    auto [H1, H2] = calculate_rectification_matrices(F);
-
-    try {
-        cv::Mat H1, H2;
-        cv::stereoRectifyUncalibrated(points_A, points_B, F, inputA->size(), H1, H2);
-        /*
-        cv::Mat remap[2][2];
-        cv::initUndistortRectifyMap(cameraMatrixA, std::vector<float>(),
-                cameraMatrixA.inv()*H1*cameraMatrixA, cameraMatrixA, inputA->size(), CV_16SC2,
-                remap[0][0], remap[0][1]);
-        cv::initUndistortRectifyMap(cameraMatrixB, std::vector<float>(),
-                cameraMatrixB.inv()*H2*cameraMatrixB, cameraMatrixB, inputB->size(), CV_16SC2,
-                                    remap[1][0], remap[1][1]);
-        cv::remap(*inputA, *inputA, remap[0][0], remap[0][1], CV_INTER_LINEAR);
-        cv::remap(*inputB, *inputB, remap[1][0], remap[1][1], CV_INTER_LINEAR);
-        */
-        /*
-        cv::Matx34d P = {0., (double)inputA->size().width, (double)inputA->size().width, 0,
-                         0, 0, (double)inputA->size().height, (double)inputA->size().height,
-                         1, 1,  1,  1};
-        cv::Mat P_ = H1 * P;
-        cv::Mat row_1 = P_.row(0) / P_.row(2);
-        cv::Mat row_2 = P_.row(1) / P_.row(2);
-        double minx, maxx, miny,maxy;
-        cv::minMaxIdx(row_1, &minx, &maxx);
-        cv::minMaxIdx(row_2, &miny, &maxy);
-        LOGI("(%f,%f) (%f,%f)", minx, maxx,miny ,maxy );
-        cv::Size new_size = cv::Size(maxx-minx, maxy-miny);
-        cv::Matx33d mul = {1.,0,(double) std::min(-minx,0.),
-                           0, 1, (double)  std::min(-miny,0.),
-                           0, 0,  1};
-        //H1 = H1*mul;
-        LOGI("(%d,%d)", new_size.width, new_size.height);
-        if(new_size.width > 4000 ||new_size.width <= 0 ||new_size.height <= 0  || new_size.height > 4000) new_size = inputA->size();
-        cv::Mat tmp(new_size, CV_8UC3);
-        */
-        cv::Mat tmpA = inputA->clone();
-        cv::Mat tmpB = inputB->clone();
-        //cv::resize(*inputA, *inputA, new_size);
-        //cv::resize(*inputB, *inputB, new_size);
-        cv::warpPerspective(tmpA, *inputA, H1, inputA->size());
-        //cv::warpPerspective(tmp, *inputB, H1, inputA->size(),  cv::WARP_INVERSE_MAP);
-        cv::warpPerspective(tmpB, *inputB, H2, inputA->size());
-        H = H1;
-        H_ = H2;
-        if(output != nullptr) {
-            cv::hconcat(*inputA, *inputB, *output);
-        }
-        if(display_information) {
-            inputA  = A_ptr_tmp;
-            inputB  = B_ptr_tmp;
-            cv::warpPerspective(*inputA, *inputA, H1, inputA->size());
-            cv::warpPerspective(*inputB, *inputB, H2, inputB->size());
-        }
-
-    } catch (std::exception e) {
-        LOGE("Could not rectify uncalibrated");
+    cv::Mat tmpA = inputA->clone();
+    cv::Mat tmpB = inputB->clone();
+    cv::resize(tmpA, tmpA, new_size);
+    cv::resize(tmpB, tmpB, new_size);
+    cv::warpPerspective(tmpA, *inputA, H1, new_size);
+    //cv::warpPerspective(tmp, *inputB, H1, inputA->size(),  cv::WARP_INVERSE_MAP);
+    cv::warpPerspective(tmpB, *inputB, H2, new_size);
+    H = H1;
+    H_ = H2;
+    if(output != nullptr) {
+        cv::hconcat(*inputA, *inputB, *output);
     }
-
+    if(display_information) {
+        inputA  = A_ptr_tmp;
+        inputB  = B_ptr_tmp;
+        cv::warpPerspective(tmpB, *inputA, H1, new_size);
+        cv::warpPerspective(tmpB, *inputB, H2, new_size);
+    }
     /*
     cv::warpPerspective(*inputB,*inputB, F,
                         inputB->size(),cv::INTER_CUBIC | CV_WARP_INVERSE_MAP);
@@ -565,45 +544,64 @@ StereoReconstruction::StereoDepthPipeline::calculate_fundamental_matrix(const cv
     return K_.inv().t()*T*R*K.inv();
 }
 
-std::pair<cv::Matx33f, cv::Matx33f>
-StereoReconstruction::StereoDepthPipeline::calculate_rectification_matrices(const cv::Matx33f &F) {
-    cv::Mat S, U, V;
-    cv::SVD::compute(F, S, U, V);
+std::optional<std::pair<cv::Matx33f, cv::Matx33f>>
+StereoReconstruction::StereoDepthPipeline::calculate_rectification_matrices(const cv::Matx33f &F,
+        const std::vector<cv::Point2f> &pointsA, const std::vector<cv::Point2f> &pointsB,
+        cv::Size &size) {
+    cv::Mat H1, H2;
+   cv::Matx33f mul;
+    try {
+        cv::stereoRectifyUncalibrated(pointsA, pointsB, F, inputA->size(), H1, H2);
+        /*
+        cv::Mat remap[2][2];
+        cv::initUndistortRectifyMap(cameraMatrixA, std::vector<float>(),
+                cameraMatrixA.inv()*H1*cameraMatrixA, cameraMatrixA, inputA->size(), CV_16SC2,
+                remap[0][0], remap[0][1]);
+        cv::initUndistortRectifyMap(cameraMatrixB, std::vector<float>(),
+                cameraMatrixB.inv()*H2*cameraMatrixB, cameraMatrixB, inputB->size(), CV_16SC2,
+                                    remap[1][0], remap[1][1]);
+        cv::remap(*inputA, *inputA, remap[0][0], remap[0][1], CV_INTER_LINEAR);
+        cv::remap(*inputB, *inputB, remap[1][0], remap[1][1], CV_INTER_LINEAR);
+        */
+        cv::Matx34f P = {0.f, (float)inputA->size().width, (float)inputA->size().width, 0,
+                         0, 0, (float)inputA->size().height, (float)inputA->size().height,
+                         1, 1,  1,  1};
+        H1.convertTo(H1, CV_32F);
+        H2.convertTo(H2, CV_32F);
+        cv::Mat P_ = H1 * P;
+        cv::Matx14f row_1 = P_.row(0);
+        cv::Matx14f row_2 = P_.row(1);
+        for(int i = 0 ; i < 4; i++){
+            row_1(i) /= P_.row(2).at<float>(i);
+            row_2(i) /= P_.row(2).at<float>(i);
+        }
+        double minx, maxx, miny,maxy;
+        cv::minMaxIdx(row_1, &minx, &maxx);
+        cv::minMaxIdx(row_2, &miny, &maxy);
+        LOGI("(%f,%f) (%f,%f)", minx, maxx,miny ,maxy );
+        size = cv::Size(maxx-minx, maxy-miny);
+        mul = {1.F,0,(float) -minx,
+                           0, 1, (float) -miny,
+                           0, 0,  1};
+        if (minx >= -4000 && maxx <= 4000 && miny >= -4000 && maxy <= 4000)
+        {
+            H1 = mul*H1;
+            H2 = mul*H2;
+        }
 
-    log_float_mat(U, "U");
-    log_float_mat(V, "V");
-    cv::Matx31f e_= U.col(2);
-    e_ *= 1.f/e_(2);
-    cv::Matx13f e = V.row(2);
-    e *= 1.f/e(2);
-    /*
-    e(2)= 1;
-    e(1) = F(1,2)*F(0,2)/F(0,0) - F(1,2);
-    e(1) /= (F(1,1)- F(1,0)*F(0,1)/F(0,0));
-    e(0) = -F(0,1)*e(1)/F(0,0)-F(0,2)/F(0,0);
+        //H1.at<float>(0,2) +=  std::min(-minx,0.);
+        //H1.at<float>(1,2) +=  std::min(-miny,0.);
+                //                   0, 1, (float)  std::min(-miny,0.),
+                //                   0, 0,  1};
+        LOGI("(%d,%d)", size.width, size.height);
 
-    cv::Matx33f F_ = F.t();
-    e_(2)= 1;
-    e_(1) = F_(1,2)*F_(2,2)/F_(2,0) - F_(1,2);
-    e_(1) /= (F_(1,1)- F_(1,0)*F_(2,1)/F_(2,0));
-    e_(0) = -F_(2,1)*e(1)/F_(2,0)-F_(2,2)/F_(2,0);
 
-    */
-    // e = (e_u, e_v, 1)^T
-    LOGI("e: (%f, %f, %f)", e(0), e(1), e(2));
-    // e' = (e'_u, e'_v, 1)^T
-    LOGI("e': (%f, %f, %f)", e_(0), e_(1), e_(2));
-    cv::Matx33f H = {1.F,       0,  0,
-                     -e(1)/e(0), 1.F,  0,
-                     -1.F/e(0),    0,  1.F};
-    cv::Matx33f H_;
-    cv::Matx33f F_ = { 0.F,0,  0,
-                       0,  0, -1,
-                       0,  1,  0};
-    cv::solve(F.inv(),H.inv()*F_.inv(),H_,cv::DECOMP_SVD );
-    //H_ = H_.t();
+    } catch (std::exception e) {
+        LOGE("Could not rectify uncalibrated");
+        return std::nullopt;
+    }
+    return std::make_pair<cv::Matx33f, cv::Matx33f>(std::move(H1), std::move(H2));
 
-    return std::make_pair<cv::Matx33f, cv::Matx33f>(std::move(H), std::move(H_));
 }
 
 void StereoReconstruction::StereoDepthPipeline::log_float_mat(const cv::Mat &mat, const char* mat_name) {
@@ -658,5 +656,8 @@ void StereoReconstruction::StereoDepthPipeline::blur_disparity(cv::Mat *img, flo
 void StereoReconstruction::StereoDepthPipeline::undo_rectification(cv::Mat *out) {
     cv::Mat tmp = out->clone();
     cv::warpPerspective(tmp, *out, H, out->size(), cv::WARP_INVERSE_MAP);
+
 }
+
+
 
