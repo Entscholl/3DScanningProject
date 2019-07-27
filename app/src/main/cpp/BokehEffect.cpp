@@ -24,13 +24,10 @@ void insertSorted(std::vector<COCListEntry> &list, COCListEntry l, const uint32_
 	}
 }
 
-void BokehEffect::compute() {
-	//First: prepare the list of nearest circles of confusion
-
-	/*
-	 * 	std::vector<std::vector<std::vector<COCListEntry>>> cocList;
+void BokehEffect::computeCircleOfConfusionApproach(){
+	std::vector<std::vector<std::vector<COCListEntry>>> cocList;
 	cocList.resize(_rgbInput.rows);
-#pragma omp parallel for
+#pragma omp parallel for schedule(guided)
 	for(int i = 0; i < _rgbInput.rows;++i){
 		cocList[i] = {};
 		cocList[i].resize(_rgbInput.cols);
@@ -42,7 +39,7 @@ void BokehEffect::compute() {
 			}
 		}
 	}
-#pragma omp parallel for
+#pragma omp parallel for schedule(guided)
 	for(int x = 0; x < _rgbInput.rows;++x) {
 		for(int y = 0; y < _rgbInput.cols;++y){
 			cv::Vec2i circleCenter = {x,y};
@@ -68,7 +65,7 @@ void BokehEffect::compute() {
 			}
 		}
 	}
-#pragma omp parallel for
+#pragma omp parallel for schedule(guided)
 	for(int x = 0; x < _rgbInput.rows;++x) {
 		for(int y = 0; y < _rgbInput.cols;++y) {
 			const auto & circles = cocList[x][y];
@@ -76,9 +73,9 @@ void BokehEffect::compute() {
 			double weights = 0;
 			for(const auto & c : circles){
 				const cv::Vec2i p = {x,y};
-                const double CoCDiamHat = thetahat(p);
-                //alpha_c of q = 4 / (diameter hat of p) ^ 2
-                int alpha_c = 4 / (CoCDiamHat * CoCDiamHat);
+				const double CoCDiamHat = thetahat(p);
+				//alpha_c of q = 4 / (diameter hat of p) ^ 2
+				int alpha_c = 4 / (CoCDiamHat * CoCDiamHat);
 				const double w = alpha_c ;
 				bokehPixel+=_rgbInput.at<cv::Vec3b>(c.circleCenter)*w;
 				weights += w;
@@ -87,7 +84,12 @@ void BokehEffect::compute() {
 
 			_outputImage.at<cv::Vec3b>(x,y) = bokehPixel;
 		}
-	}*/
+	}
+}
+
+void BokehEffect::compute() {
+	//First: prepare the list of nearest circles of confusion
+
 
 	cv::Mat outputImage = cv::Mat(_rgbInput.rows, _rgbInput.cols, CV_8UC3);
 	LOGI("focal length: %f", _focalLength);

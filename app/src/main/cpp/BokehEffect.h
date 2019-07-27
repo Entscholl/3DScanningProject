@@ -67,9 +67,10 @@ public:
 			return std::abs(upper_term / lower_term);
 
 		}
-
-
+		// Bokeh effect using Gaussian Blur.. fast enough for mobile
 		void compute();
+		// Bokeh effect using circles of confusion https://www.researchgate.net/publication/277476495_Bokeh_Effects_Based_on_Stereo_Vision.. too slow for mobile
+		void computeCircleOfConfusionApproach();
 
 		const cv::Mat & outputImage() const{
 			return _outputImage;
